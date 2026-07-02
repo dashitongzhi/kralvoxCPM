@@ -1,7 +1,44 @@
 launch.json
 .venv/
 __pycache__
+*.py[cod]
 voxcpm.egg-info
 .DS_Store
 ./pretrained_models/
 app_local.py
+
+# Local runtime secrets and generated artifacts
+.env
+.env.*
+!.env.example
+.runtime.env
+*.log
+*.pid
+outputs/
+
+# Large local model/data/cache directories
+models/
+cache/
+datasets/
+data/
+modelscope_cache/
+hf_cache/
+torch_cache/
+
+# Large model/checkpoint artifacts
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# Local packaging/build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local product/prototype artifacts not needed for the TTS runtime
+reports/
+site/
+smart_router/

@@ -1,8 +1,11 @@
 import os
 import re
 import sys
+import json
 import logging
 import random
+import urllib.error
+import urllib.request
 import numpy as np
 import gradio as gr
 from typing import Optional, Tuple
@@ -23,129 +26,80 @@ logger = logging.getLogger(__name__)
 
 # ---------- Inline i18n (en + zh-CN only) ----------
 
-_USAGE_INSTRUCTIONS_EN = (
-    "**VoxCPM2 — Three Modes of Speech Generation:**\n\n"
-    "🎨 **Voice Design** — Create a brand-new voice  \n"
-    "No reference audio required. Describe the desired voice characteristics "
-    "(gender, age, tone, emotion, pace …) in **Control Instruction**, and VoxCPM2 "
-    "will craft a unique voice from your description alone.\n\n"
-    "🎛️ **Controllable Cloning** — Clone a voice with optional style guidance  \n"
-    "Upload a reference audio clip, then use **Control Instruction** to steer "
-    "emotion, speaking pace, and overall style while preserving the original timbre.\n\n"
-    "🎙️ **Ultimate Cloning** — Reproduce every vocal nuance through audio continuation  \n"
-    "Turn on **Ultimate Cloning Mode** and provide (or auto-transcribe) the reference audio's transcript. "
-    "The model treats the reference clip as a spoken prefix and seamlessly **continues** from it, faithfully preserving every vocal detail."
-    "Note: This mode will disable Control Instruction."
-)
-
-_EXAMPLES_FOOTER_EN = (
-    "---\n"
-    "**💡 Voice Description Examples:**  \n"
-    "Try the following Control Instructions to explore different voices:  \n\n"
-    "**Example 1 — Gentle & Melancholic Girl**  \n"
-    '`Control Instruction`: *"A young girl with a soft, sweet voice. '
-    'Speaks slowly with a melancholic, slightly tsundere tone."*  \n'
-    "`Target Text`: *\"I never asked you to stay… It's not like I care or anything. "
-    "But… why does it still hurt so much now that you're gone?\"*  \n\n"
-    "**Example 2 — Laid-Back Surfer Dude**  \n"
-    '`Control Instruction`: *"Relaxed young male voice, slightly nasal, '
-    'lazy drawl, very casual and chill."*  \n'
-    '`Target Text`: *"Dude, did you see that set? The waves out there are totally gnarly today. '
-    "Just catching barrels all morning — it's like, totally righteous, you know what I mean?\"*"
-)
-
 _USAGE_INSTRUCTIONS_ZH = (
-    "**VoxCPM2 — 三种语音生成方式：**\n\n"
-    "🎨 **声音设计（Voice Design）**  \n"
-    "无需参考音频。在 **Control Instruction** 中描述目标音色特征"
-    "（性别、年龄、语气、情绪、语速等），VoxCPM2 即可为你从零创造独一无二的声音。\n\n"
-    "🎛️ **可控克隆（Controllable Cloning）**  \n"
-    "上传参考音频，同时可选地使用 **Control Instruction** 来指定情绪、语速、风格等表达方式，"
-    "在保留原始音色的基础上灵活控制说话风格。\n\n"
-    "🎙️ **极致克隆（Ultimate Cloning）**  \n"
-    "开启 **极致克隆模式** 并提供参考音频的文字内容（可自动识别）。"
-    "模型会将参考音频视为已说出的前文，以**音频续写**的方式完整还原参考音频中的所有声音细节。"
-    "注意：该模式与可控克隆模式互斥，将禁用Control Instruction。\n\n"
+    "**普通话转方言语音生成**\n\n"
+    "输入普通话文本，选择目标方言，并写出角色画像或声音描述。系统会先把普通话改写成对应方言口语，"
+    "再用这个方言文本生成语音。你也可以上传参考音频，让生成结果更接近参考声音。\n\n"
+    "**使用建议**  \n"
+    "角色画像越具体，结果越容易稳定。例如：广东中年男教练，暴躁，语速快，声音粗粝；"
+    "或四川话女店主，热情，接地气，像本地小店老板。\n\n"
+    "**极致克隆模式**  \n"
+    "开启后会根据参考音频文本续写，适合追求参考音频的细节还原；该模式会停用角色画像/声音描述。\n\n"
 )
 
 _EXAMPLES_FOOTER_ZH = (
     "---\n"
-    "**💡 声音描述示例（中英文均可）：**  \n\n"
-    "**示例 1 — 深宫太后**  \n"
-    '`Control Instruction`: *"中老年女性，声音低沉阴冷，语速缓慢而有力，'
+    "**声音描述示例**  \n\n"
+    "**示例 1：深宫太后**  \n"
+    '`声音/方言描述`: *"中老年女性，声音低沉阴冷，语速缓慢而有力，'
     '字字深思熟虑，带有深不可测的城府与威慑感。"*  \n'
-    '`Target Text`: *"哀家在这深宫待了四十年，什么风浪没见过？你以为瞒得过哀家？"*  \n\n'
-    "**示例 2 — 暴躁驾校教练**  \n"
-    '`Control Instruction`: *"暴躁的中年男声，语速快，充满无奈和愤怒"*  \n'
-    '`Target Text`: *"踩离合！踩刹车啊！你往哪儿开呢？前面是树你看不见吗？'
+    '`要生成的文字`: *"哀家在这深宫待了四十年，什么风浪没见过？你以为瞒得过哀家？"*  \n\n'
+    "**示例 2：暴躁驾校教练**  \n"
+    '`声音/方言描述`: *"暴躁的中年男声，语速快，充满无奈和愤怒"*  \n'
+    '`要生成的文字`: *"踩离合！踩刹车啊！你往哪儿开呢？前面是树你看不见吗？'
     '我教了你八百遍了，打死方向盘！你是不是想把车给我开到沟里去？"*  \n\n'
     "---\n"
-    "**🗣️ 方言生成指南：**  \n"
-    "要生成地道的方言语音，请在 **Target Text** 中直接使用方言词汇和句式，"
-    "并在 **Control Instruction** 中描述方言特征。  \n\n"
-    "**示例 — 广东话**  \n"
-    '`Control Instruction`: *"粤语，中年男性，语气平淡"*  \n'
+    "**方言生成指南**  \n"
+    "要生成地道的方言语音，请在 **要生成的文字** 中直接使用方言词汇和句式，"
+    "并在 **声音/方言描述** 中写明方言和声音风格。  \n\n"
+    "**示例：广东话**  \n"
+    '`声音/方言描述`: *"粤语，中年男性，语气平淡"*  \n'
     '✅ 正确（粤语表达）：*"伙計，唔該一個A餐，凍奶茶少甜！"*  \n'
     '❌ 错误（普通话原文）：*"伙计，麻烦来一个A餐，冻奶茶少甜！"*  \n\n'
-    "**示例 — 河南话**  \n"
-    '`Control Instruction`: *"河南话，接地气的大叔"*  \n'
+    "**示例：河南话**  \n"
+    '`声音/方言描述`: *"河南话，接地气的大叔"*  \n'
     '✅ 正确（河南话表达）：*"恁这是弄啥嘞？晌午吃啥饭？"*  \n'
     '❌ 错误（普通话原文）：*"你这是在干什么呢？中午吃什么饭？"*  \n\n'
-    "🤖 **小技巧：** 不知道方言怎么写？可以用豆包、DeepSeek、Kimi 等 AI 助手"
-    "将普通话翻译为方言文本，再粘贴到 Target Text 中即可。  \n\n"
+    "**小技巧：** 不知道方言怎么写时，可以先用 AI 助手把普通话改写成方言文本，"
+    "再粘贴到“要生成的文字”里。  \n\n"
 )
 
+_ZH_TRANSLATIONS = {
+    "reference_audio_label": "参考音频（可选，上传后用于克隆）",
+    "show_prompt_text_label": "极致克隆模式（基于参考音频文本续写）",
+    "show_prompt_text_info": "自动识别参考音频文本，尽量还原音色、节奏、情感等声音细节。开启后会停用声音/方言描述。",
+    "prompt_text_label": "参考音频内容文本（自动识别，可手动编辑）",
+    "prompt_text_placeholder": "参考音频的文字内容会自动识别并显示在这里。",
+    "dialect_label": "目标方言",
+    "role_label": "角色画像/声音描述",
+    "role_placeholder": "例如：暴躁的广东中年男教练，语速快，声音粗粝，充满无奈和愤怒",
+    "target_text_label": "普通话文本",
+    "rewritten_text_label": "已改写的方言文本",
+    "rewritten_text_placeholder": "点击生成后，这里会显示大模型改写出的方言文本。",
+    "generate_btn": "改写并生成语音",
+    "generated_audio_label": "生成结果",
+    "advanced_settings_title": "高级设置",
+    "auto_rewrite_label": "自动把普通话改写成方言",
+    "auto_rewrite_info": "开启后先调用大模型生成方言文本，再交给语音模型合成。关闭后会直接合成普通话文本。",
+    "ref_denoise_label": "参考音频降噪增强",
+    "ref_denoise_info": "克隆前使用 ZipEnhancer 对参考音频进行降噪处理。",
+    "normalize_label": "文本规范化",
+    "normalize_info": "自动规范化数字、日期及缩写（基于 wetext）。",
+    "cfg_label": "CFG 引导强度",
+    "cfg_info": "数值越高越贴合提示/参考音色；数值越低生成风格更自由。",
+    "dit_steps_label": "生成迭代步数",
+    "dit_steps_info": "步数越多可能音质更好，但生成速度会变慢。",
+    "seed_label": "随机种子",
+    "seed_info": "用于复现生成结果；生成成功后会显示实际使用的种子。",
+    "random_seed_label": "每次自动随机",
+    "random_seed_info": "每次生成前自动换一个随机种子。",
+    "usage_instructions": _USAGE_INSTRUCTIONS_ZH,
+    "examples_footer": _EXAMPLES_FOOTER_ZH,
+}
+
 _I18N_TRANSLATIONS = {
-    "en": {
-        "reference_audio_label": "🎤 Reference Audio (optional — upload for cloning)",
-        "show_prompt_text_label": "🎙️ Ultimate Cloning Mode (transcript-guided cloning)",
-        "show_prompt_text_info": "Auto-transcribes reference audio for every vocal nuance reproduced. Control Instruction will be disabled when active.",
-        "prompt_text_label": "Transcript of Reference Audio (auto-filled via ASR, editable)",
-        "prompt_text_placeholder": "The transcript of your reference audio will appear here …",
-        "control_label": "🎛️ Control Instruction (optional — supports Chinese & English)",
-        "control_placeholder": "e.g. A warm young woman / 年轻女性，温柔甜美 / Excited and fast-paced",
-        "target_text_label": "✍️ Target Text — the content to speak",
-        "generate_btn": "🔊 Generate Speech",
-        "generated_audio_label": "Generated Audio",
-        "advanced_settings_title": "⚙️ Advanced Settings",
-        "ref_denoise_label": "Reference audio enhancement",
-        "ref_denoise_info": "Apply ZipEnhancer denoising to the reference audio before cloning",
-        "normalize_label": "Text normalization",
-        "normalize_info": "Normalize numbers, dates, and abbreviations via wetext",
-        "cfg_label": "CFG (guidance scale)",
-        "cfg_info": "Higher → closer to the prompt / reference; lower → more creative variation",
-        "dit_steps_label": "LocDiT flow-matching steps",
-        "dit_steps_info": "LocDiT flow-matching steps — more steps → maybe better audio quality, but slower",
-        "seed_label": "Seed",
-        "seed_info": "Seed used for reproducible generation. Updated with the actual successful seed after generation.",
-        "random_seed_label": "Random Seed",
-        "random_seed_info": "Generate a new seed before each inference run.",
-        "usage_instructions": _USAGE_INSTRUCTIONS_EN,
-        "examples_footer": _EXAMPLES_FOOTER_EN,
-    },
-    "zh-CN": {
-        "reference_audio_label": "🎤 参考音频（可选 — 上传后用于克隆）",
-        "show_prompt_text_label": "🎙️ 极致克隆模式（基于文本引导的极致克隆）",
-        "show_prompt_text_info": "自动识别参考音频文本，完整还原音色、节奏、情感等全部声音细节。开启后 Control Instruction 将暂时禁用",
-        "prompt_text_label": "参考音频内容文本（ASR 自动填充，可手动编辑）",
-        "prompt_text_placeholder": "参考音频的文字内容将自动识别并显示在此处 …",
-        "control_label": "🎛️ Control Instruction（可选 — 支持中英文描述）",
-        "control_placeholder": "如：年轻女性，温柔甜美 / A warm young woman / 暴躁老哥，语速飞快",
-        "target_text_label": "✍️ Target Text — 要合成的目标文本",
-        "generate_btn": "🔊 开始生成",
-        "generated_audio_label": "生成结果",
-        "advanced_settings_title": "⚙️ 高级设置",
-        "ref_denoise_label": "参考音频降噪增强",
-        "ref_denoise_info": "克隆前使用 ZipEnhancer 对参考音频进行降噪处理",
-        "normalize_label": "文本规范化",
-        "normalize_info": "自动规范化数字、日期及缩写（基于 wetext）",
-        "cfg_label": "CFG（引导强度）",
-        "cfg_info": "数值越高 → 越贴合提示/参考音色；数值越低 → 生成风格更自由",
-        "dit_steps_label": "LocDiT 流匹配迭代步数",
-        "dit_steps_info": "LocDiT 流匹配生成迭代步数 — 步数越多 → 可能生成更好的音频质量，但速度变慢",
-        "usage_instructions": _USAGE_INSTRUCTIONS_ZH,
-        "examples_footer": _EXAMPLES_FOOTER_ZH,
-    },
+    "en": _ZH_TRANSLATIONS,
+    "zh-CN": _ZH_TRANSLATIONS,
     "zh-Hans": None,  # alias, filled below
     "zh": None,  # alias, filled below
 }
@@ -159,20 +113,42 @@ for _d in _I18N_TRANSLATIONS.values():
 
 I18N = gr.I18n(**_I18N_TRANSLATIONS)
 
-DEFAULT_TARGET_TEXT = (
-    "VoxCPM2 is a creative multilingual TTS model from ModelBest, " "designed to generate highly realistic speech."
-)
+DEFAULT_TARGET_TEXT = "踩离合！踩刹车啊！你往哪儿开呢？前面是树你看不见吗？我教了你八百遍了，打死方向盘！你是不是想把车给我开到沟里去？"
+
+DEFAULT_DIALECTS = [
+    "粤语",
+    "四川话",
+    "河南话",
+    "东北话",
+    "陕西话",
+    "山东话",
+    "天津话",
+    "闽南话",
+    "吴语",
+    "普通话",
+]
+
+KRALAPI_BASE_URL = os.getenv("KRALAPI_BASE_URL", "https://kralapi.kralai.tech").rstrip("/")
+KRALAPI_MODEL = os.getenv("KRALAPI_MODEL", "gpt-5.5")
+KRALAPI_API_KEY = os.getenv("KRALAPI_API_KEY") or os.getenv("OPENAI_API_KEY")
 
 _CUSTOM_CSS = """
-.logo-container {
+.brand-header {
     text-align: center;
-    margin: 0.5rem 0 1rem 0;
+    margin: 0.75rem 0 1rem 0;
 }
-.logo-container img {
-    height: 80px;
-    width: auto;
-    max-width: 200px;
+.brand-name {
     display: inline-block;
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: 0;
+    color: var(--body-text-color);
+}
+.brand-subtitle {
+    margin-top: 0.5rem;
+    color: var(--body-text-color-subdued);
+    font-size: 0.95rem;
 }
 
 /* Toggle switch style */
@@ -219,6 +195,75 @@ _APP_THEME = gr.themes.Soft(
     neutral_hue="slate",
     font=[gr.themes.GoogleFont("Inter"), "Arial", "sans-serif"],
 )
+
+
+# ---------- Dialect rewrite ----------
+
+
+def _clean_llm_text(text: str) -> str:
+    cleaned = (text or "").strip()
+    cleaned = re.sub(r"^```(?:text|markdown|json)?", "", cleaned).strip()
+    cleaned = re.sub(r"```$", "", cleaned).strip()
+    cleaned = re.sub(r"^(改写结果|方言文本|输出|结果)[:：]\s*", "", cleaned).strip()
+    return cleaned.strip("\"'“”‘’ \n\t")
+
+
+def rewrite_mandarin_to_dialect(text: str, dialect: str, role_description: str) -> str:
+    source_text = (text or "").strip()
+    target_dialect = (dialect or "粤语").strip()
+    role = (role_description or "").strip()
+
+    if not source_text:
+        raise ValueError("请先输入普通话文本。")
+    if target_dialect == "普通话":
+        return source_text
+    if not KRALAPI_API_KEY:
+        raise ValueError("未配置 KRALAPI_API_KEY，无法自动改写方言文本。")
+
+    system_prompt = (
+        "你是中文方言口语改写助手，专门把普通话台词改写成指定方言口语。"
+        "只输出改写后的台词，不要解释，不要加标题，不要加括号说明。"
+        "保留原句的情绪、语气、人物关系、信息量和可朗读性。"
+        "如果用户给了角色画像，要让遣词、节奏和口气符合角色。"
+        "不要把所有字硬翻成生僻字，优先使用普通用户看得懂、TTS 容易读的方言口语写法。"
+    )
+    user_prompt = (
+        f"目标方言：{target_dialect}\n"
+        f"角色画像/声音描述：{role or '自然口语'}\n"
+        f"普通话文本：{source_text}\n\n"
+        "请输出适合直接交给中文 TTS 朗读的方言文本。"
+    )
+    payload = {
+        "model": KRALAPI_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.45,
+        "max_tokens": min(1200, max(240, len(source_text) * 3)),
+    }
+    request = urllib.request.Request(
+        f"{KRALAPI_BASE_URL}/v1/chat/completions",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {KRALAPI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=45) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:400]
+        raise RuntimeError(f"方言改写接口返回错误：HTTP {exc.code} {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"方言改写接口连接失败：{exc}") from exc
+
+    rewritten = _clean_llm_text(data.get("choices", [{}])[0].get("message", {}).get("content", ""))
+    if not rewritten:
+        raise RuntimeError("方言改写接口没有返回有效文本。")
+    return rewritten
 
 
 # ---------- Model ----------
@@ -369,10 +414,12 @@ def create_demo_interface(demo: VoxCPMDemo):
 
     def _generate(
         text: str,
-        control_instruction: str,
+        dialect: str,
+        role_description: str,
         ref_wav: Optional[str],
         use_prompt_text: bool,
         prompt_text_value: str,
+        auto_rewrite: bool,
         cfg_value: float,
         do_normalize: bool,
         denoise: bool,
@@ -380,10 +427,17 @@ def create_demo_interface(demo: VoxCPMDemo):
         seed_value,
     ):
         actual_prompt_text = prompt_text_value.strip() if use_prompt_text else ""
-        actual_control = "" if use_prompt_text else control_instruction
+        input_text = (text or "").strip()
+        rewritten_text = (
+            rewrite_mandarin_to_dialect(input_text, dialect, role_description)
+            if auto_rewrite and not use_prompt_text
+            else input_text
+        )
+        control_parts = [dialect.strip() if dialect else "", role_description.strip() if role_description else ""]
+        actual_control = "" if use_prompt_text else "，".join(part for part in control_parts if part)
         seed = _coerce_seed(seed_value)
         sr, wav_np, last_successful_seed = demo.generate_tts_audio(
-            text_input=text,
+            text_input=rewritten_text,
             control_instruction=actual_control,
             reference_wav_path_input=ref_wav,
             prompt_text=actual_prompt_text,
@@ -393,7 +447,7 @@ def create_demo_interface(demo: VoxCPMDemo):
             inference_timesteps=int(dit_steps),
             seed=seed,
         )
-        return (sr, wav_np), last_successful_seed
+        return rewritten_text, (sr, wav_np), last_successful_seed
 
     def _on_toggle_instant(checked):
         """Instant UI toggle — no ASR, no blocking."""
@@ -422,8 +476,9 @@ def create_demo_interface(demo: VoxCPMDemo):
 
     with gr.Blocks() as interface:
         gr.HTML(
-            '<div class="logo-container">'
-            '<img src="/gradio_api/file=assets/voxcpm_logo.png" alt="VoxCPM Logo">'
+            '<div class="brand-header">'
+            '<div class="brand-name">声创科技</div>'
+            '<div class="brand-subtitle">中文方言与声音克隆生成工具</div>'
             "</div>"
         )
 
@@ -449,10 +504,16 @@ def create_demo_interface(demo: VoxCPMDemo):
                     lines=2,
                     visible=False,
                 )
-                control_instruction = gr.Textbox(
-                    value="",
-                    label=I18N("control_label"),
-                    placeholder=I18N("control_placeholder"),
+                dialect = gr.Dropdown(
+                    choices=DEFAULT_DIALECTS,
+                    value="粤语",
+                    label=I18N("dialect_label"),
+                    allow_custom_value=True,
+                )
+                role_description = gr.Textbox(
+                    value="暴躁的广东中年男教练，语速快，声音粗粝，充满无奈和愤怒",
+                    label=I18N("role_label"),
+                    placeholder=I18N("role_placeholder"),
                     lines=2,
                 )
                 text = gr.Textbox(
@@ -473,6 +534,12 @@ def create_demo_interface(demo: VoxCPMDemo):
                         label=I18N("normalize_label"),
                         elem_classes=["switch-toggle"],
                         info=I18N("normalize_info"),
+                    )
+                    AutoRewriteText = gr.Checkbox(
+                        value=True,
+                        label=I18N("auto_rewrite_label"),
+                        elem_classes=["switch-toggle"],
+                        info=I18N("auto_rewrite_info"),
                     )
                     cfg_value = gr.Slider(
                         minimum=1.0,
@@ -508,13 +575,20 @@ def create_demo_interface(demo: VoxCPMDemo):
                 run_btn = gr.Button(I18N("generate_btn"), variant="primary", size="lg")
 
             with gr.Column():
+                rewritten_text_output = gr.Textbox(
+                    value="",
+                    label=I18N("rewritten_text_label"),
+                    placeholder=I18N("rewritten_text_placeholder"),
+                    lines=5,
+                    interactive=False,
+                )
                 audio_output = gr.Audio(label=I18N("generated_audio_label"))
                 gr.Markdown(I18N("examples_footer"))
 
         show_prompt_text.change(
             fn=_on_toggle_instant,
             inputs=[show_prompt_text],
-            outputs=[prompt_text, control_instruction],
+            outputs=[prompt_text, role_description],
         ).then(
             fn=_run_asr_if_needed,
             inputs=[show_prompt_text, reference_wav],
@@ -536,17 +610,19 @@ def create_demo_interface(demo: VoxCPMDemo):
             fn=_generate,
             inputs=[
                 text,
-                control_instruction,
+                dialect,
+                role_description,
                 reference_wav,
                 show_prompt_text,
                 prompt_text,
+                AutoRewriteText,
                 cfg_value,
                 DoNormalizeText,
                 DoDenoisePromptAudio,
                 dit_steps,
                 seed_value,
             ],
-            outputs=[audio_output, seed_value],
+            outputs=[rewritten_text_output, audio_output, seed_value],
             show_progress=True,
             api_name="generate",
         )
