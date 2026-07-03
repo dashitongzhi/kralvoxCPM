@@ -153,24 +153,8 @@ html.dark {
 
     <!-- ========== 顶部导航栏 (48px) ========== -->
     <nav style="flex-shrink:0; height: 48px; background: var(--bg-primary); border-bottom: 1px solid var(--border-default); box-shadow: var(--shadow-sm);">
-      <div style="height:100%; max-width: 100%; margin: 0 auto; padding: 0 var(--space-6); display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <!-- Logo icon -->
-          <div style="width: 28px; height: 28px; background: var(--color-primary); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" x2="12" y1="19" y2="22"></line>
-            </svg>
-          </div>
-          <div style="font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); line-height: 1.2;">声创科技</div>
-          <div style="font-size: var(--text-xs); color: var(--text-tertiary); line-height: 1.2; margin-left: var(--space-2);">VoxCPM2 方言语音合成</div>
-        </div>
-        <div style="display: flex; align-items: center; gap: var(--space-4);">
-          <a href="#" style="font-size: var(--text-xs); color: var(--text-secondary); text-decoration: none; font-weight: 500;">工作台</a>
-          <a href="#" style="font-size: var(--text-xs); color: var(--text-tertiary); text-decoration: none;">API 文档</a>
-          <a href="#" style="font-size: var(--text-xs); color: var(--text-tertiary); text-decoration: none;">关于</a>
-        </div>
+      <div style="height:100%; max-width: 100%; margin: 0 auto; padding: 0 var(--space-6); display: flex; align-items: center;">
+        <div style="font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); line-height: 1.2;">声创科技</div>
       </div>
     </nav>
 
@@ -658,10 +642,42 @@ html.dark {
       const advancedBtn = $('advanced-btn');
       const advancedSettings = $('advanced-settings');
 
+      function syncToggleControl(input) {
+        if (!input) return;
+        const label = input.closest('label');
+        if (!label) return;
+        const bg = label.querySelector('.toggle-bg');
+        const dot = label.querySelector('.toggle-dot');
+        if (bg) bg.style.background = input.checked ? 'var(--color-primary)' : 'var(--color-neutral-300)';
+        if (dot) dot.style.transform = input.checked ? 'translateX(16px)' : 'translateX(0)';
+      }
+
+      function bindToggleControl(input) {
+        if (!input) return;
+        syncToggleControl(input);
+        input.addEventListener('change', function() { syncToggleControl(input); });
+      }
+
+      [cloneToggle, autoRewrite, denoiseToggle, normalizeToggle].forEach(bindToggleControl);
+
       // State
       let uploadedFileData = null; // { path, meta }
       let recorderState = null;
       let recorderTimer = null;
+
+      function setDialectSelectDisabled(disabled) {
+        if (!dialectSelect) return;
+        dialectSelect.disabled = disabled;
+        dialectSelect.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        dialectSelect.style.color = disabled ? 'var(--text-tertiary)' : 'var(--text-primary)';
+        dialectSelect.style.background = disabled ? 'var(--color-neutral-100)' : 'var(--bg-secondary)';
+        dialectSelect.style.cursor = disabled ? 'not-allowed' : 'pointer';
+        dialectSelect.style.opacity = disabled ? '0.65' : '1';
+        const arrow = dialectSelect.nextElementSibling;
+        if (arrow) arrow.style.stroke = disabled ? 'var(--color-neutral-300)' : 'var(--text-tertiary)';
+      }
+
+      setDialectSelectDisabled(Boolean(cloneToggle && cloneToggle.checked));
 
       // ========== Upload / Recording ==========
       function bindUploadTarget(target) {
@@ -871,25 +887,31 @@ html.dark {
 
       // ========== ASR ==========
       async function runASR(fileData) {
-        if (!fileData) return;
+        if (!fileData) return '';
         asrStatus.textContent = '识别中...';
         asrStatus.style.color = 'var(--state-warning)';
         try {
           const result = await callGradio('/_run_asr_if_needed', [true, fileData]);
-          const recognizedText = result[0];
+          const recognizedPayload = result && result[0];
+          const recognizedText = typeof recognizedPayload === 'string'
+            ? recognizedPayload
+            : (recognizedPayload && typeof recognizedPayload.value === 'string' ? recognizedPayload.value : '');
           asrText.value = recognizedText;
-          asrStatus.textContent = '已识别';
-          asrStatus.style.color = 'var(--state-success)';
-          if (cloneUploadHint) cloneUploadHint.textContent = '已自动识别参考音频';
+          asrStatus.textContent = recognizedText ? '已识别' : '未识别到文本';
+          asrStatus.style.color = recognizedText ? 'var(--state-success)' : 'var(--state-warning)';
+          if (cloneUploadHint) cloneUploadHint.textContent = recognizedText ? '已自动识别参考音频' : '未识别到文本，请更换参考音频';
+          return recognizedText;
         } catch (err) {
           asrStatus.textContent = '识别失败';
           asrStatus.style.color = 'var(--state-error)';
           if (cloneUploadHint) cloneUploadHint.textContent = '识别失败，请重新上传或关闭极致克隆';
+          return '';
         }
       }
 
       // ========== Clone Toggle ==========
       cloneToggle.addEventListener('change', function() {
+        setDialectSelectDisabled(this.checked);
         if (this.checked) {
           // Show ASR card, hide role card
           roleCard.style.display = 'none';
@@ -968,7 +990,7 @@ html.dark {
           const denoise = denoiseToggle.checked;
           const ditSteps = parseInt(stepsSlider.value);
           const usePromptText = cloneToggle.checked;
-          const promptTextValue = asrText ? asrText.value : '';
+          let promptTextValue = asrText ? asrText.value : '';
           const seedValue = parseInt(seedInput.value) || 0;
 
           if (!text.trim()) {
@@ -986,16 +1008,33 @@ html.dark {
             refWav = uploadedFileData;
           }
 
+          if (usePromptText) {
+            if (!refWav) {
+              alert('极致克隆需要先上传或录制一段参考音频');
+              return;
+            }
+            if (!promptTextValue.trim()) {
+              promptTextValue = await runASR(refWav);
+            }
+            if (!promptTextValue.trim()) {
+              alert('参考音频还没有识别出文本，无法按原作者的极致克隆逻辑生成');
+              return;
+            }
+          }
+
+          const autoRewriteForRequest = usePromptText ? false : autoRewriteVal;
+          const roleForRequest = usePromptText ? '' : role;
+
           const result = await callGradio('/generate', [
-            text, dialect, role, refWav, usePromptText, promptTextValue,
-            autoRewriteVal, cfgValueNum, doNormalize, denoise, ditSteps, seedValue
+            text, dialect, roleForRequest, refWav, usePromptText, promptTextValue,
+            autoRewriteForRequest, cfgValueNum, doNormalize, denoise, ditSteps, seedValue
           ]);
 
           // result[0] = 改写文本, result[1] = 音频文件, result[2] = seed
           outputText.textContent = result[0] || '';
           outputText.style.fontStyle = 'normal';
           outputDialectTag.textContent = dialect;
-          rewriteStatus.textContent = autoRewriteVal ? '已自动改写' : '未改写';
+          rewriteStatus.textContent = usePromptText ? '极致克隆' : (autoRewriteVal ? '已自动改写' : '未改写');
 
           // Audio
           if (result[1]) {
@@ -1133,7 +1172,7 @@ html.dark {
           gradioWaveform = source.WaveSurfer.create({
             container: waveformContainer,
             height: 92,
-            waveColor: '#ff7a00',
+            waveColor: '#d6dbe6',
             progressColor: '#ff7a00',
             cursorColor: '#e8ddff',
             cursorWidth: 4,
