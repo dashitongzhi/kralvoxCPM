@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音合成工作台 - 声创科技</title>
+    <style id="theme-vars">
+:root {
+  /* === Brand Colors === */
+  --color-primary: #2563eb;
+  --color-primary-light: #3b82f6;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  /* === Neutrals === */
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+
+  /* === State Colors === */
+  --state-success: #22c55e;
+  --state-warning: #f59e0b;
+  --state-error: #ef4444;
+  --state-info: #3b82f6;
+
+  /* === Surface & Background === */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --surface-card: #ffffff;
+  --surface-elevated: #ffffff;
+
+  /* === Text === */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --text-on-primary: #ffffff;
+
+  /* === Border === */
+  --border-default: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* === Radius === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* === Shadows === */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.06);
+
+  /* === Typography === */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+
+  /* Type Scale */
+  --text-xs: 0.75rem;
+  --text-xs-leading: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm-leading: 1.25rem;
+  --text-base: 1rem;
+  --text-base-leading: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg-leading: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl-leading: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl-leading: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl-leading: 2.25rem;
+  --text-4xl: 2.25rem;
+  --text-4xl-leading: 2.5rem;
+
+  /* === Spacing === */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* === Transitions === */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* Dark mode */
+html.dark {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --surface-card: #1e293b;
+  --surface-elevated: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #64748b;
+  --border-default: #334155;
+  --border-strong: #475569;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-primary: var(--color-primary);
+  }
+  @layer base {
+    body { background: var(--color-background); color: var(--color-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased" style="margin:0; padding:0; background: var(--bg-secondary); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+
+    <!-- ========== 顶部导航栏 (48px) ========== -->
+    <nav style="flex-shrink:0; height: 48px; background: var(--bg-primary); border-bottom: 1px solid var(--border-default); box-shadow: var(--shadow-sm);">
+      <div style="height:100%; max-width: 100%; margin: 0 auto; padding: 0 var(--space-6); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <!-- Logo icon -->
+          <div style="width: 28px; height: 28px; background: var(--color-primary); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" x2="12" y1="19" y2="22"></line>
+            </svg>
+          </div>
+          <div style="font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); line-height: 1.2;">声创科技</div>
+          <div style="font-size: var(--text-xs); color: var(--text-tertiary); line-height: 1.2; margin-left: var(--space-2);">VoxCPM2 方言语音合成</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-4);">
+          <a href="#" style="font-size: var(--text-xs); color: var(--text-secondary); text-decoration: none; font-weight: 500;">工作台</a>
+          <a href="#" style="font-size: var(--text-xs); color: var(--text-tertiary); text-decoration: none;">API 文档</a>
+          <a href="#" style="font-size: var(--text-xs); color: var(--text-tertiary); text-decoration: none;">关于</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ========== 主体区域 (两行布局) ========== -->
+    <main style="flex: 1; display: flex; flex-direction: column; padding: var(--space-3) var(--space-4); gap: var(--space-3); min-height: 0; overflow: hidden; position: relative;">
+
+      <!-- ===== 第一行: 输入配置区 ===== -->
+      <div style="flex: 55; display: flex; gap: var(--space-3); min-height: 0; overflow: hidden;">
+
+        <!-- 1. 参考音频上传 (紧凑卡片) -->
+        <div style="flex: 0 0 180px; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-3); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; overflow: hidden;">
+          <label style="font-size: var(--text-xs); font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); flex-shrink:0;">参考音频（可选）</label>
+          <input type="file" id="audio-file-input" accept="audio/*" style="display: none;">
+          <div id="upload-area" style="flex:1; border: 2px dashed var(--border-strong); border-radius: var(--radius-md); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; background: var(--bg-secondary); gap: var(--space-2); min-height: 0;">
+            <svg id="upload-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" x2="12" y1="19" y2="22"></line>
+            </svg>
+            <div id="upload-label" style="font-size: var(--text-xs); font-weight: 500; color: var(--text-secondary);">上传或录制参考音频</div>
+            <div id="upload-hint" style="font-size: 10px; color: var(--text-tertiary);">WAV/MP3/FLAC</div>
+            <div class="audio-actions">
+              <button type="button" id="upload-pick-btn" class="audio-action-btn" data-upload-action>上传</button>
+              <button type="button" id="record-btn" class="audio-action-btn" data-record-action>录音</button>
+            </div>
+            <div id="record-status" class="record-status"></div>
+          </div>
+        </div>
+
+        <!-- 2. 主输入区 (方言 + 克隆 + 角色 + 文本) -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; overflow: hidden;">
+          <!-- 上排: 方言 + 克隆 + 高级设置按钮 -->
+          <div style="flex-shrink:0; display: flex; align-items: center; gap: var(--space-3); background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-2) var(--space-3); box-shadow: var(--shadow-sm);">
+            <!-- 方言 Dropdown -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <label style="font-size: var(--text-xs); font-weight: 600; color: var(--text-primary); white-space:nowrap;">方言</label>
+              <div style="position: relative;">
+                <select id="dialect-select" style="width: 100px; padding: var(--space-1) var(--space-3); padding-right: var(--space-8); font-size: var(--text-xs); color: var(--text-primary); background: var(--bg-secondary); border: 1px solid var(--border-default); border-radius: var(--radius-sm); appearance: none; cursor: pointer; font-family: var(--font-sans); outline: none; height: 28px;">
+                  <option>粤语</option>
+                  <option>四川话</option>
+                  <option>河南话</option>
+                  <option>东北话</option>
+                  <option>陕西话</option>
+                  <option>山东话</option>
+                  <option>天津话</option>
+                  <option>闽南话</option>
+                  <option>吴语</option>
+                  <option>普通话</option>
+                </select>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); pointer-events: none;">
+                  <path d="m6 9 6 6 6-6"></path>
+                </svg>
+              </div>
+            </div>
+            <!-- 分隔线 -->
+            <div style="width: 1px; height: 20px; background: var(--border-default);"></div>
+            <!-- 极致克隆 toggle -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <span style="font-size: var(--text-xs); color: var(--text-primary); font-weight: 500;">极致克隆</span>
+              <label style="position: relative; width: 36px; height: 20px; cursor: pointer; display:inline-block; flex-shrink:0;">
+                <input type="checkbox" id="clone-toggle" style="opacity: 0; width: 0; height: 0;">
+                <span class="toggle-bg" style="position: absolute; inset: 0; background: var(--color-neutral-300); border-radius: var(--radius-full); transition: background 0.2s;"></span>
+                <span class="toggle-dot" style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 0.2s;"></span>
+              </label>
+            </div>
+            <!-- 分隔线 -->
+            <div style="width: 1px; height: 20px; background: var(--border-default);"></div>
+            <!-- 高级设置展开按钮 -->
+            <button id="advanced-btn" style="display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2); cursor: pointer; font-family: var(--font-sans); font-size: var(--text-xs); color: var(--text-secondary); white-space:nowrap;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span>高级</span>
+              <svg class="chevron-a" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s; transform: rotate(0deg);">
+                <path d="m6 9 6 6 6-6"></path>
+              </svg>
+            </button>
+            <!-- 分隔线 -->
+            <div style="width: 1px; height: 20px; background: var(--border-default);"></div>
+            <!-- 生成语音按钮 -->
+            <button id="generate-btn" style="padding: var(--space-1) var(--space-4); border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); display: flex; align-items: center; justify-content: center; gap: var(--space-2); background: var(--color-primary); color: white; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35); transition: background 0.2s; font-size: var(--text-xs); font-weight: 600; height: 28px; white-space:nowrap;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="6 3 20 12 6 21 6 3"></polygon>
+              </svg>
+              生成语音
+            </button>
+          </div>
+          <!-- 高级设置展开面板 (默认收起, 展开后在工具栏下方) -->
+          <div id="advanced-settings" style="display: none; flex-direction: row; gap: var(--space-4); background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-2) var(--space-3); box-shadow: var(--shadow-sm); flex-shrink:0;">
+            <!-- 自动改写 -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <span style="font-size: var(--text-xs); color: var(--text-primary);">自动改写</span>
+              <label style="position: relative; width: 36px; height: 20px; cursor: pointer; display:inline-block; flex-shrink:0; flex-shrink:0;">
+                <input type="checkbox" id="auto-rewrite" checked style="opacity: 0; width: 0; height: 0;">
+                <span class="toggle-bg" style="position: absolute; inset: 0; background: var(--color-primary); border-radius: var(--radius-full);"></span>
+                <span class="toggle-dot" style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 0.2s;"></span>
+              </label>
+            </div>
+            <!-- 音频降噪 -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <span style="font-size: var(--text-xs); color: var(--text-primary);">音频降噪</span>
+              <label style="position: relative; width: 36px; height: 20px; cursor: pointer; display:inline-block; flex-shrink:0; flex-shrink:0;">
+                <input type="checkbox" id="denoise-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                <span class="toggle-bg" style="position: absolute; inset: 0; background: var(--color-primary); border-radius: var(--radius-full);"></span>
+                <span class="toggle-dot" style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 0.2s;"></span>
+              </label>
+            </div>
+            <!-- 文本规范化 -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <span style="font-size: var(--text-xs); color: var(--text-primary);">文本规范化</span>
+              <label style="position: relative; width: 36px; height: 20px; cursor: pointer; display:inline-block; flex-shrink:0; flex-shrink:0;">
+                <input type="checkbox" id="normalize-toggle" style="opacity: 0; width: 0; height: 0;">
+                <span class="toggle-bg" style="position: absolute; inset: 0; background: var(--color-neutral-300); border-radius: var(--radius-full);"></span>
+                <span class="toggle-dot" style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></span>
+              </label>
+            </div>
+            <!-- 分隔线 -->
+            <div style="width: 1px; height: 20px; background: var(--border-default);"></div>
+            <!-- CFG 强度 -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <label style="font-size: var(--text-xs); color: var(--text-primary); white-space:nowrap;">CFG</label>
+              <input type="range" id="cfg-slider" min="1.0" max="3.0" step="0.1" value="1.5" style="width: 80px; height: 4px; appearance: none; background: linear-gradient(to right, var(--color-primary) 25%, var(--color-neutral-200) 25%); border-radius: var(--radius-full); outline: none; cursor: pointer;">
+              <span id="cfg-value" style="font-size: var(--text-xs); font-weight: 600; color: var(--color-primary); min-width: 28px; text-align: center;">1.5</span>
+            </div>
+            <!-- 迭代步数 -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <label style="font-size: var(--text-xs); color: var(--text-primary); white-space:nowrap;">步数</label>
+              <input type="range" id="steps-slider" min="1" max="50" step="1" value="25" style="width: 80px; height: 4px; appearance: none; background: linear-gradient(to right, var(--color-primary) 49%, var(--color-neutral-200) 49%); border-radius: var(--radius-full); outline: none; cursor: pointer;">
+              <span id="steps-value" style="font-size: var(--text-xs); font-weight: 600; color: var(--color-primary); min-width: 20px; text-align: center;">25</span>
+            </div>
+            <!-- 分隔线 -->
+            <div style="width: 1px; height: 20px; background: var(--border-default);"></div>
+            <!-- 随机种子 -->
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <label style="font-size: var(--text-xs); color: var(--text-primary); white-space:nowrap;">种子</label>
+              <input type="number" id="seed-input" value="42" style="width: 60px; height: 24px; padding: 0 var(--space-2); font-size: var(--text-xs); color: var(--text-tertiary); background: var(--bg-tertiary); border: 1px solid var(--border-default); border-radius: var(--radius-sm); font-family: var(--font-mono); outline: none;">
+            </div>
+          </div>
+
+          <!-- 下排: 角色 + 文本输入 (两列) -->
+          <div style="flex:1; display: flex; gap: var(--space-2); min-height:0; overflow:hidden;">
+            <!-- 角色画像 -->
+            <div id="role-card" style="flex: 2; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-2) var(--space-3); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 2px; overflow: hidden;">
+              <label style="font-size: var(--text-xs); font-weight: 600; color: var(--text-primary); flex-shrink:0;">角色画像 / 声音描述</label>
+              <textarea id="role-desc" placeholder="例如：暴躁的广东中年男教练，语速快，声音粗粝，充满无奈和愤怒" style="width: 100%; flex:1; min-height:0; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--text-primary); background: var(--bg-secondary); border: 1px solid var(--border-default); border-radius: var(--radius-sm); resize: none; font-family: var(--font-sans); line-height: 1.5; outline: none;"></textarea>
+            </div>
+            <!-- 参考音频上传 (极致克隆模式下显示) -->
+            <div id="asr-card" style="flex: 2; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-2) var(--space-3); box-shadow: var(--shadow-sm); display: none; flex-direction: column; gap: var(--space-2); overflow: hidden;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-shrink:0;">
+                <label style="font-size: var(--text-xs); font-weight: 600; color: var(--text-primary);">上传参考音频</label>
+                <span id="asr-status" style="font-size: 10px; color: var(--text-tertiary);">用于极致克隆</span>
+              </div>
+              <div id="clone-upload-area" style="flex:1; min-height:0; border: 2px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--bg-secondary); display:flex; flex-direction:column; align-items:center; justify-content:center; gap: var(--space-2); cursor:pointer; text-align:center;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" x2="12" y1="19" y2="22"></line>
+                </svg>
+                <div id="clone-upload-label" style="font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary);">上传或录制参考音频</div>
+                <div id="clone-upload-hint" style="font-size: 10px; color: var(--text-tertiary);">WAV/MP3/FLAC，上传后自动识别</div>
+                <div class="audio-actions">
+                  <button type="button" id="clone-upload-pick-btn" class="audio-action-btn" data-upload-action>上传</button>
+                  <button type="button" id="clone-record-btn" class="audio-action-btn" data-record-action>录音</button>
+                </div>
+                <div id="clone-record-status" class="record-status"></div>
+              </div>
+              <textarea id="asr-text" style="display:none;"></textarea>
+            </div>
+            <!-- 普通话文本输入 -->
+            <div style="flex: 3; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-2) var(--space-3); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 2px; min-height:0; overflow:hidden;">
+              <label style="font-size: var(--text-xs); font-weight: 600; color: var(--text-primary); flex-shrink:0;">普通话文本</label>
+              <textarea id="input-text" style="width:100%; flex:1; min-height:0; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--text-primary); background: var(--bg-secondary); border: 1px solid var(--border-default); border-radius: var(--radius-sm); resize: none; font-family: var(--font-sans); line-height: 1.6; outline: none;">大家好，欢迎来到声创科技的语音合成演示。今天我们将为大家展示如何利用人工智能技术，将普通话文本转换为各种方言的自然语音。这项技术可以广泛应用于语音导航、有声读物、智能客服等领域。</textarea>
+              <div style="display: flex; justify-content: space-between; flex-shrink:0;">
+                <span id="char-count-hint" style="font-size: 10px; color: var(--text-tertiary);">建议 50-500 字</span>
+                <span id="char-count" style="font-size: 10px; color: var(--text-tertiary);">85 字</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===== 第二行: 生成结果区 (45%) ===== -->
+      <div style="flex: 45; display: flex; gap: var(--space-3); min-height: 0; overflow: hidden;">
+
+        <!-- 左半: 已改写的方言文本 -->
+        <div style="flex: 1; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); flex-shrink:0;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <label style="font-size: var(--text-xs); font-weight: 600; color: var(--text-primary);">已改写的方言文本</label>
+            <span id="output-dialect-tag" style="font-size: 10px; color: var(--color-primary); background: var(--color-primary-50); padding: 1px 8px; border-radius: var(--radius-full); font-weight: 500;">粤语</span>
+            <span id="rewrite-status" style="font-size: 10px; color: var(--text-tertiary);">已自动改写</span>
+          </div>
+          <div style="flex:1; background: var(--color-primary-50); border: 1px solid var(--color-primary-100); border-radius: var(--radius-md); padding: var(--space-3); overflow-y: auto; min-height:0;">
+            <p id="output-text" style="font-size: var(--text-sm); color: var(--text-secondary); margin: 0; line-height: 1.7; font-style: italic;">等待生成...</p>
+          </div>
+        </div>
+
+        <!-- 右半: Gradio 原生 Audio 输出播放器迁移区 -->
+        <div style="flex: 1; background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+          <div id="gradio-audio-card" class="gradio-output-audio is-empty">
+            <div class="gradio-audio-topbar">
+              <div class="gradio-audio-label">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span>生成结果</span>
+              </div>
+              <div class="gradio-audio-actions">
+                <a id="download-btn" class="gradio-icon-button" href="#" download="shengchuang-tts.wav" title="下载音频" aria-label="下载音频">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" x2="12" y1="15" y2="3"></line>
+                  </svg>
+                </a>
+                <button id="gradio-share-btn" class="gradio-icon-button" type="button" title="分享音频" aria-label="分享音频">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="18" cy="5" r="3"></circle>
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="19" r="3"></circle>
+                    <path d="M8.59 13.51 15.42 17.49"></path>
+                    <path d="M15.41 6.51 8.59 10.49"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="gradio-waveform-shell">
+              <div id="waveform-container" class="gradio-waveform" aria-label="音频波形"></div>
+              <div id="gradio-empty-audio" class="gradio-empty-audio">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              </div>
+            </div>
+
+            <div class="gradio-timestamps">
+              <span id="gradio-current-time">0:00</span>
+              <span id="audio-duration">0:00</span>
+            </div>
+
+            <div class="gradio-controls" data-testid="waveform-controls">
+              <div class="gradio-control-wrapper">
+                <button id="gradio-volume-btn" class="gradio-control-button gradio-volume" type="button" aria-label="调整音量">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                  </svg>
+                </button>
+                <div id="gradio-volume-popover" class="gradio-volume-popover" hidden>
+                  <input id="gradio-volume-slider" class="gradio-volume-slider" type="range" min="0" max="1" step="0.01" value="1">
+                </div>
+                <button id="gradio-speed-btn" class="gradio-playback-rate" type="button">1x</button>
+              </div>
+
+              <div class="gradio-playback-wrapper">
+                <button id="gradio-rewind-btn" class="gradio-transport-button gradio-rewind" type="button" aria-label="快退">
+                  <svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.044 5.704a.6.6 0 0 1 .956.483v11.626a.6.6 0 0 1-.956.483l-7.889-5.813a.6.6 0 0 1 0-.966l7.89-5.813ZM10.044 5.704a.6.6 0 0 1 .956.483v11.626a.6.6 0 0 1-.956.483l-7.888-5.813a.6.6 0 0 1 0-.966l7.888-5.813Z"></path>
+                  </svg>
+                </button>
+                <button id="play-btn" class="gradio-play-pause-button" type="button" aria-label="播放音频">
+                  <svg id="play-icon" width="60" height="60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M8 5.74537C8 5.06444 8.77346 4.64713 9.35139 5.02248L18.0227 10.2771C18.5518 10.6219 18.5518 11.3781 18.0227 11.7229L9.35139 16.9775C8.77346 17.3529 8 16.9356 8 16.2546V5.74537Z"></path>
+                  </svg>
+                </button>
+                <button id="gradio-skip-btn" class="gradio-transport-button gradio-skip" type="button" aria-label="快进">
+                  <svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.956 5.704A.6.6 0 0 0 2 6.187v11.626a.6.6 0 0 0 .956.483l7.889-5.813a.6.6 0 0 0 0-.966l-7.89-5.813ZM13.956 5.704a.6.6 0 0 0-.956.483v11.626a.6.6 0 0 0 .956.483l7.889-5.813a.6.6 0 0 0 0-.966l-7.89-5.813Z"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="gradio-settings-spacer"></div>
+            </div>
+            <audio id="audio-player" preload="metadata" style="display:none;"></audio>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+      /* Custom range slider thumb */
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px; height: 14px;
+        background: var(--color-primary);
+        border: 2px solid white;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        cursor: pointer;
+      }
+      /* Custom select */
+      select { background-image: none; }
+      /* Toggle visual states */
+      input[type="checkbox"]:checked + .toggle-bg { background: var(--color-primary) !important; }
+      input[type="checkbox"]:checked ~ .toggle-dot { transform: translateX(16px) !important; }
+      /* Audio player styling */
+      .audio-actions { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; }
+      .audio-action-btn { height: 22px; min-width: 44px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-tertiary); color: var(--text-secondary); font-size: 10px; font-weight: 600; cursor: pointer; }
+      .audio-action-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-50); }
+      .audio-action-btn.is-recording { border-color: var(--state-error); color: white; background: var(--state-error); }
+      .record-status { min-height: 12px; font-size: 10px; color: var(--text-tertiary); line-height: 1.2; }
+      #audio-player { width: 100%; }
+      #audio-player::-webkit-media-controls-panel { background: transparent; }
+      .wave-bar { transform-origin: bottom center; transition: opacity 0.18s ease, transform 0.18s ease; }
+      #waveform-container.has-audio .wave-bar { opacity: 0.95; }
+      #waveform-container.is-playing .wave-bar { animation: wavePulse 0.86s ease-in-out infinite alternate; }
+      #waveform-container.is-playing .wave-bar:nth-child(3n) { animation-delay: 0.12s; }
+      #waveform-container.is-playing .wave-bar:nth-child(4n) { animation-delay: 0.24s; }
+      #waveform-container.is-playing .wave-bar:nth-child(5n) { animation-delay: 0.36s; }
+      @keyframes wavePulse { from { transform: scaleY(0.52); opacity: 0.52; } to { transform: scaleY(1); opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { #waveform-container.is-playing .wave-bar { animation: none; } .wave-bar { transition: none; } }
+
+      /* Gradio Audio component migration: sourced from gradio 6.17.3 StaticAudio + MinimalAudioPlayer assets. */
+      .gradio-output-audio { position: relative; width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; background: #fff; border-radius: var(--radius-md); padding: var(--space-3); overflow: hidden; }
+      .gradio-audio-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); flex-shrink: 0; }
+      .gradio-audio-label { display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; background: #dbeafe; color: #3b82f6; padding: 8px 12px; font-size: 24px; font-weight: 800; line-height: 1; }
+      .gradio-audio-actions { display: inline-flex; align-items: center; box-shadow: var(--shadow-sm); }
+      .gradio-icon-button { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-default); border-right: 0; background: white; color: var(--color-primary); text-decoration: none; cursor: pointer; }
+      .gradio-icon-button:last-child { border-right: 1px solid var(--border-default); }
+      .gradio-icon-button:hover, .gradio-icon-button:focus { color: var(--color-primary); background: var(--color-primary-50); }
+      .gradio-waveform-shell { position: relative; flex: 1; min-height: 82px; display: flex; align-items: center; margin-top: var(--space-3); }
+      .gradio-waveform { width: 100%; height: 100%; min-height: 82px; position: relative; }
+      .gradio-empty-audio { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--color-neutral-400); pointer-events: none; }
+      .gradio-output-audio.has-audio .gradio-empty-audio { display: none; }
+      .gradio-timestamps { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-1) 0; color: var(--color-neutral-400); font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+      .gradio-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-areas: "controls playback editing"; margin-top: 8px; align-items: center; position: relative; justify-content: space-between; flex-shrink: 0; }
+      .gradio-control-wrapper { display: flex; justify-self: self-start; align-items: center; grid-area: controls; position: relative; gap: 14px; }
+      .gradio-playback-wrapper { display: flex; justify-self: center; align-items: center; grid-area: playback; }
+      .gradio-settings-spacer { grid-area: editing; }
+      .gradio-control-button, .gradio-transport-button, .gradio-play-pause-button { border: 0; background: transparent; color: var(--color-neutral-400); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+      .gradio-control-button:hover, .gradio-control-button:focus, .gradio-transport-button:hover, .gradio-transport-button:focus, .gradio-play-pause-button:hover, .gradio-play-pause-button:focus { color: var(--color-primary); }
+      .gradio-playback-rate { border: 1px solid var(--color-neutral-400); border-radius: var(--radius-sm); min-width: 86px; height: 40px; font-size: 20px; font-weight: 800; text-align: center; color: var(--color-neutral-400); background: transparent; cursor: pointer; }
+      .gradio-playback-rate:hover, .gradio-playback-rate:focus { color: var(--color-primary); border-color: var(--color-primary); }
+      .gradio-play-pause-button { width: 70px; height: 70px; color: var(--color-neutral-400); fill: var(--color-neutral-400); }
+      .gradio-transport-button { margin: 0 10px; color: var(--color-neutral-400); }
+      .gradio-volume { position: relative; width: 44px; height: 44px; }
+      .gradio-volume-popover { position: absolute; left: 0; bottom: 48px; padding: 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: white; box-shadow: var(--shadow-sm); z-index: 3; }
+      .gradio-volume-slider { -webkit-appearance: none; appearance: none; width: 90px; accent-color: var(--color-primary); height: 4px; cursor: pointer; outline: none; border-radius: 15px; background-color: var(--color-neutral-400); }
+      .gradio-volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; height: 15px; width: 15px; background-color: var(--color-primary); border-radius: 50%; border: none; transition: .2s ease-in-out; }
+      .gradio-output-audio.is-empty .gradio-audio-actions, .gradio-output-audio.is-empty .gradio-controls { opacity: .55; }
+      @media (max-width: 900px) { .gradio-audio-label { font-size: 18px; } .gradio-timestamps { font-size: 20px; } .gradio-playback-rate { min-width: 64px; height: 34px; font-size: 16px; } .gradio-play-pause-button { width: 54px; height: 54px; } }
+      @media (prefers-reduced-motion: reduce) { .gradio-icon-button, .gradio-control-button, .gradio-transport-button, .gradio-play-pause-button { transition: none; } }
+    </style>
+
+    <script type="module">
+      import { u as GradioWaveSurfer, g as gradioSkipLength } from "/gradio-assets/MinimalAudioPlayer-CKOlO7lO.js";
+      window.GradioAudioSource = { WaveSurfer: GradioWaveSurfer, gradioSkipLength };
+      window.dispatchEvent(new Event("gradio-audio-source-ready"));
+    </script>
+
+    <script>
+    (function() {
+      'use strict';
+
+      // ========== Gradio API Client ==========
+      const GRADIO_URL = "";
+
+      async function uploadFile(file) {
+        const formData = new FormData();
+        formData.append('files', file);
+        const res = await fetch(GRADIO_URL + '/gradio_api/upload', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('上传文件失败: ' + res.status);
+        const paths = await res.json();
+        return { path: paths[0].trim(), meta: { _type: 'gradio.FileData' } };
+      }
+
+      async function callGradio(apiName, data) {
+        // 1. 发起调用获取 event_id
+        const callRes = await fetch(GRADIO_URL + '/gradio_api/call' + apiName, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: data })
+        });
+        if (!callRes.ok) throw new Error('API 调用失败: ' + callRes.status);
+        const { event_id } = await callRes.json();
+
+        // 2. SSE 流获取结果
+        const resultRes = await fetch(GRADIO_URL + '/gradio_api/call' + apiName + '/' + event_id);
+        if (!resultRes.ok) throw new Error('获取结果失败: ' + resultRes.status);
+        const reader = resultRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEvent = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim();
+              continue;
+            }
+            if (line.startsWith('data: ')) {
+              const msg = JSON.parse(line.slice(6));
+              if (msg && msg.msg === 'process_completed') {
+                return msg.output.data;
+              }
+              if (currentEvent === 'complete') {
+                return msg;
+              }
+              if (currentEvent === 'error') {
+                throw new Error(Array.isArray(msg) ? msg.join(' ') : (msg.message || JSON.stringify(msg)));
+              }
+            }
+          }
+        }
+        throw new Error('No complete message received');
+      }
+
+      // ========== DOM References ==========
+      const $ = (id) => document.getElementById(id);
+
+      const dialectSelect = $('dialect-select');
+      const cloneToggle = $('clone-toggle');
+      const roleCard = $('role-card');
+      const asrCard = $('asr-card');
+      const asrText = $('asr-text');
+      const asrStatus = $('asr-status');
+      const inputText = $('input-text');
+      const autoRewrite = $('auto-rewrite');
+      const denoiseToggle = $('denoise-toggle');
+      const normalizeToggle = $('normalize-toggle');
+      const cfgSlider = $('cfg-slider');
+      const cfgValue = $('cfg-value');
+      const stepsSlider = $('steps-slider');
+      const stepsValue = $('steps-value');
+      const seedInput = $('seed-input');
+      const generateBtn = $('generate-btn');
+      const outputText = $('output-text');
+      const outputDialectTag = $('output-dialect-tag');
+      const rewriteStatus = $('rewrite-status');
+      const audioPlayer = $('audio-player');
+      const downloadBtn = $('download-btn');
+      const audioDuration = $('audio-duration');
+      const waveformContainer = $('waveform-container');
+      const playBtn = $('play-btn');
+      const playIcon = $('play-icon');
+      const audioProgress = $('audio-progress');
+      const audioProgressFill = $('audio-progress-fill');
+      const uploadArea = $('upload-area');
+      const cloneUploadArea = $('clone-upload-area');
+      const cloneUploadLabel = $('clone-upload-label');
+      const cloneUploadHint = $('clone-upload-hint');
+      const audioFileInput = $('audio-file-input');
+      const uploadPickBtn = $('upload-pick-btn');
+      const cloneUploadPickBtn = $('clone-upload-pick-btn');
+      const recordBtn = $('record-btn');
+      const cloneRecordBtn = $('clone-record-btn');
+      const recordStatus = $('record-status');
+      const cloneRecordStatus = $('clone-record-status');
+      const uploadLabel = $('upload-label');
+      const uploadHint = $('upload-hint');
+      const uploadIcon = $('upload-icon');
+      const charCount = $('char-count');
+      const advancedBtn = $('advanced-btn');
+      const advancedSettings = $('advanced-settings');
+
+      // State
+      let uploadedFileData = null; // { path, meta }
+      let recorderState = null;
+      let recorderTimer = null;
+
+      // ========== Upload / Recording ==========
+      function bindUploadTarget(target) {
+        if (!target) return;
+        target.addEventListener('click', function(e) {
+          if (e.target.closest('[data-upload-action], [data-record-action]')) return;
+          audioFileInput.click();
+        });
+        target.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          this.style.borderColor = 'var(--color-primary)';
+        });
+        target.addEventListener('dragleave', function(e) {
+          e.preventDefault();
+          this.style.borderColor = '';
+        });
+        target.addEventListener('drop', function(e) {
+          e.preventDefault();
+          this.style.borderColor = '';
+          const files = e.dataTransfer.files;
+          if (files.length > 0 && files[0].type.startsWith('audio/')) {
+            handleAudioFile(files[0]);
+          }
+        });
+      }
+
+      bindUploadTarget(uploadArea);
+      bindUploadTarget(cloneUploadArea);
+
+      function bindPickButton(button) {
+        if (!button) return;
+        button.addEventListener('click', function(e) {
+          e.stopPropagation();
+          audioFileInput.click();
+        });
+      }
+
+      function bindRecordButton(button, source) {
+        if (!button) return;
+        button.addEventListener('click', async function(e) {
+          e.stopPropagation();
+          if (recorderState) {
+            await stopRecording();
+          } else {
+            await startRecording(source);
+          }
+        });
+      }
+
+      bindPickButton(uploadPickBtn);
+      bindPickButton(cloneUploadPickBtn);
+      bindRecordButton(recordBtn, 'main');
+      bindRecordButton(cloneRecordBtn, 'clone');
+
+      audioFileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+          handleAudioFile(this.files[0]);
+        }
+      });
+
+      function setRecordUI(isRecording, source, message) {
+        [recordBtn, cloneRecordBtn].forEach(function(btn) {
+          if (!btn) return;
+          btn.textContent = isRecording ? '停止' : '录音';
+          btn.classList.toggle('is-recording', isRecording);
+        });
+        const statusText = message || '';
+        if (recordStatus) recordStatus.textContent = source === 'main' || !isRecording ? statusText : '';
+        if (cloneRecordStatus) cloneRecordStatus.textContent = source === 'clone' || !isRecording ? statusText : '';
+      }
+
+      async function startRecording(source) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          alert('当前浏览器不支持录音，请使用上传音频');
+          return;
+        }
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          alert('当前浏览器不支持音频录制，请使用上传音频');
+          return;
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const audioContext = new AudioContextClass();
+          const mediaSource = audioContext.createMediaStreamSource(stream);
+          const processor = audioContext.createScriptProcessor(4096, 1, 1);
+          const silentGain = audioContext.createGain();
+          silentGain.gain.value = 0;
+          const chunks = [];
+          processor.onaudioprocess = function(event) {
+            chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+          };
+          mediaSource.connect(processor);
+          processor.connect(silentGain);
+          silentGain.connect(audioContext.destination);
+          recorderState = { source: source, stream: stream, audioContext: audioContext, mediaSource: mediaSource, processor: processor, silentGain: silentGain, chunks: chunks, sampleRate: audioContext.sampleRate, startedAt: Date.now() };
+          setRecordUI(true, source, '录音中 0:00');
+          recorderTimer = window.setInterval(function() {
+            if (!recorderState) return;
+            setRecordUI(true, recorderState.source, '录音中 ' + formatTime((Date.now() - recorderState.startedAt) / 1000));
+          }, 300);
+        } catch (err) {
+          setRecordUI(false, source, '录音权限被拒绝');
+          alert('无法启动录音：请允许浏览器访问麦克风');
+          console.error('Recording error:', err);
+        }
+      }
+
+      async function stopRecording() {
+        if (!recorderState) return;
+        const state = recorderState;
+        recorderState = null;
+        if (recorderTimer) {
+          window.clearInterval(recorderTimer);
+          recorderTimer = null;
+        }
+        try { state.processor.disconnect(); } catch (err) {}
+        try { state.mediaSource.disconnect(); } catch (err) {}
+        try { state.silentGain.disconnect(); } catch (err) {}
+        state.stream.getTracks().forEach(function(track) { track.stop(); });
+        if (state.audioContext && state.audioContext.state !== 'closed') {
+          await state.audioContext.close();
+        }
+        const samples = mergeFloat32Chunks(state.chunks);
+        if (samples.length < state.sampleRate * 0.3) {
+          setRecordUI(false, state.source, '录音太短，请重录');
+          return;
+        }
+        const wavBlob = encodeWav(samples, state.sampleRate);
+        const file = new File([wavBlob], 'recording-' + Date.now() + '.wav', { type: 'audio/wav' });
+        setRecordUI(false, state.source, '录音完成，正在上传');
+        await handleAudioFile(file);
+      }
+
+      function mergeFloat32Chunks(chunks) {
+        const length = chunks.reduce(function(total, chunk) { return total + chunk.length; }, 0);
+        const samples = new Float32Array(length);
+        let offset = 0;
+        chunks.forEach(function(chunk) {
+          samples.set(chunk, offset);
+          offset += chunk.length;
+        });
+        return samples;
+      }
+
+      function encodeWav(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+        let offset = 44;
+        for (let i = 0; i < samples.length; i += 1, offset += 2) {
+          const sample = Math.max(-1, Math.min(1, samples[i]));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        }
+        return new Blob([view], { type: 'audio/wav' });
+      }
+
+      function writeString(view, offset, value) {
+        for (let i = 0; i < value.length; i += 1) {
+          view.setUint8(offset + i, value.charCodeAt(i));
+        }
+      }
+
+      async function handleAudioFile(file) {
+        uploadLabel.textContent = file.name;
+        uploadHint.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        uploadArea.style.borderColor = 'var(--state-success)';
+        uploadArea.style.background = 'var(--color-primary-50)';
+        if (cloneUploadLabel) cloneUploadLabel.textContent = file.name;
+        if (cloneUploadHint) cloneUploadHint.textContent = (file.size / 1024).toFixed(1) + ' KB，正在准备识别';
+        if (cloneUploadArea) {
+          cloneUploadArea.style.borderColor = 'var(--state-success)';
+          cloneUploadArea.style.background = 'var(--color-primary-50)';
+        }
+        // Upload to Gradio
+        try {
+          uploadedFileData = await uploadFile(file);
+          if (cloneUploadHint) cloneUploadHint.textContent = '上传完成，等待识别';
+          if (recordStatus) recordStatus.textContent = file.name.endsWith('.wav') ? '已准备 WAV 音频' : '';
+          if (cloneRecordStatus) cloneRecordStatus.textContent = file.name.endsWith('.wav') ? '已准备 WAV 音频' : '';
+          // If clone mode is on, run ASR automatically
+          if (cloneToggle.checked) {
+            runASR(uploadedFileData);
+          }
+        } catch (err) {
+          uploadLabel.textContent = '上传失败';
+          uploadHint.textContent = err.message;
+          uploadArea.style.borderColor = 'var(--state-error)';
+          if (cloneUploadLabel) cloneUploadLabel.textContent = '上传失败';
+          if (cloneUploadHint) cloneUploadHint.textContent = err.message;
+          if (cloneUploadArea) cloneUploadArea.style.borderColor = 'var(--state-error)';
+          uploadedFileData = null;
+        }
+      }
+
+      // ========== ASR ==========
+      async function runASR(fileData) {
+        if (!fileData) return;
+        asrStatus.textContent = '识别中...';
+        asrStatus.style.color = 'var(--state-warning)';
+        try {
+          const result = await callGradio('/_run_asr_if_needed', [true, fileData]);
+          const recognizedText = result[0];
+          asrText.value = recognizedText;
+          asrStatus.textContent = '已识别';
+          asrStatus.style.color = 'var(--state-success)';
+          if (cloneUploadHint) cloneUploadHint.textContent = '已自动识别参考音频';
+        } catch (err) {
+          asrStatus.textContent = '识别失败';
+          asrStatus.style.color = 'var(--state-error)';
+          if (cloneUploadHint) cloneUploadHint.textContent = '识别失败，请重新上传或关闭极致克隆';
+        }
+      }
+
+      // ========== Clone Toggle ==========
+      cloneToggle.addEventListener('change', function() {
+        if (this.checked) {
+          // Show ASR card, hide role card
+          roleCard.style.display = 'none';
+          asrCard.style.display = 'flex';
+          // If there's an uploaded file, run ASR
+          if (uploadedFileData) {
+            runASR(uploadedFileData);
+          }
+        } else {
+          // Hide ASR card, show role card
+          asrCard.style.display = 'none';
+          roleCard.style.display = 'flex';
+        }
+      });
+
+      // ========== Advanced Settings Toggle ==========
+      advancedBtn.addEventListener('click', function() {
+        const panel = advancedSettings;
+        const chevron = this.querySelector('.chevron-a');
+        if (panel.style.display === 'none') {
+          panel.style.display = 'flex';
+          chevron.style.transform = 'rotate(180deg)';
+        } else {
+          panel.style.display = 'none';
+          chevron.style.transform = 'rotate(0deg)';
+        }
+      });
+
+      // ========== Slider Real-time Update ==========
+      cfgSlider.addEventListener('input', function() {
+        cfgValue.textContent = parseFloat(this.value).toFixed(1);
+        const pct = ((this.value - this.min) / (this.max - this.min)) * 100;
+        this.style.background = 'linear-gradient(to right, var(--color-primary) ' + pct + '%, var(--color-neutral-200) ' + pct + '%)';
+      });
+
+      stepsSlider.addEventListener('input', function() {
+        stepsValue.textContent = this.value;
+        const pct = ((this.value - this.min) / (this.max - this.min)) * 100;
+        this.style.background = 'linear-gradient(to right, var(--color-primary) ' + pct + '%, var(--color-neutral-200) ' + pct + '%)';
+      });
+
+      // ========== Char Count ==========
+      inputText.addEventListener('input', function() {
+        charCount.textContent = this.value.length + ' 字';
+      });
+
+      // ========== Dialect Select Updates Output Tag ==========
+      dialectSelect.addEventListener('change', function() {
+        outputDialectTag.textContent = this.value;
+      });
+
+      // ========== Generate Button ==========
+      generateBtn.addEventListener('click', async function() {
+        const btn = this;
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke-opacity="0.3"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path></svg> 生成中...';
+
+        // Add spin animation if not exists
+        if (!document.getElementById('spin-style')) {
+          const style = document.createElement('style');
+          style.id = 'spin-style';
+          style.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+          document.head.appendChild(style);
+        }
+
+        try {
+          const text = inputText.value;
+          const dialect = dialectSelect.value;
+          const role = $('role-desc') ? $('role-desc').value : '';
+          const autoRewriteVal = autoRewrite.checked;
+          const cfgValueNum = parseFloat(cfgSlider.value);
+          const doNormalize = normalizeToggle.checked;
+          const denoise = denoiseToggle.checked;
+          const ditSteps = parseInt(stepsSlider.value);
+          const usePromptText = cloneToggle.checked;
+          const promptTextValue = asrText ? asrText.value : '';
+          const seedValue = parseInt(seedInput.value) || 0;
+
+          if (!text.trim()) {
+            alert('请输入普通话文本');
+            return;
+          }
+
+          if (recorderState) {
+            alert('请先停止录音');
+            return;
+          }
+
+          let refWav = null;
+          if (uploadedFileData) {
+            refWav = uploadedFileData;
+          }
+
+          const result = await callGradio('/generate', [
+            text, dialect, role, refWav, usePromptText, promptTextValue,
+            autoRewriteVal, cfgValueNum, doNormalize, denoise, ditSteps, seedValue
+          ]);
+
+          // result[0] = 改写文本, result[1] = 音频文件, result[2] = seed
+          outputText.textContent = result[0] || '';
+          outputText.style.fontStyle = 'normal';
+          outputDialectTag.textContent = dialect;
+          rewriteStatus.textContent = autoRewriteVal ? '已自动改写' : '未改写';
+
+          // Audio
+          if (result[1]) {
+            let audioUrl = '';
+            if (typeof result[1] === 'string') {
+              audioUrl = result[1];
+            } else if (result[1].url) {
+              audioUrl = result[1].url;
+            } else if (result[1].data) {
+              // base64 data
+              audioUrl = 'data:audio/wav;base64,' + result[1].data;
+            } else if (result[1].path) {
+              audioUrl = '/gradio_api/file=' + encodeURIComponent(result[1].path);
+            }
+            if (audioUrl && (audioUrl.startsWith('http://localhost:8808') || audioUrl.startsWith('http://127.0.0.1:8808'))) {
+              audioUrl = audioUrl.replace('http://localhost:8808', window.location.origin).replace('http://127.0.0.1:8808', window.location.origin);
+            }
+            if (audioUrl) {
+              setGeneratedAudio(audioUrl);
+            }
+          }
+
+          // Seed
+          if (result[2] !== undefined && result[2] !== null) {
+            seedInput.value = result[2];
+          }
+
+        } catch (err) {
+          alert('生成失败: ' + err.message);
+          console.error('Generate error:', err);
+        } finally {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          btn.style.cursor = 'pointer';
+          btn.innerHTML = originalHTML;
+        }
+      });
+
+      // ========== Gradio Audio Preview ==========
+      let gradioWaveform = null;
+      let gradioAudioUrl = '';
+      let gradioAudioReadyPromise = null;
+      const gradioAudioCard = $('gradio-audio-card');
+      const gradioShareBtn = $('gradio-share-btn');
+      const gradioCurrentTime = $('gradio-current-time');
+      const gradioSpeedBtn = $('gradio-speed-btn');
+      const gradioRewindBtn = $('gradio-rewind-btn');
+      const gradioSkipBtn = $('gradio-skip-btn');
+      const gradioVolumeBtn = $('gradio-volume-btn');
+      const gradioVolumePopover = $('gradio-volume-popover');
+      const gradioVolumeSlider = $('gradio-volume-slider');
+      const playbackRates = [0.5, 1, 1.5, 2];
+      let playbackRateIndex = 1;
+      let previousVolume = 1;
+
+      function getGradioAudioSource() {
+        if (window.GradioAudioSource) return Promise.resolve(window.GradioAudioSource);
+        if (!gradioAudioReadyPromise) {
+          gradioAudioReadyPromise = new Promise(function(resolve, reject) {
+            const timer = window.setTimeout(function() {
+              reject(new Error('Gradio 音频播放器模块加载超时'));
+            }, 12000);
+            window.addEventListener('gradio-audio-source-ready', function() {
+              window.clearTimeout(timer);
+              resolve(window.GradioAudioSource);
+            }, { once: true });
+          });
+        }
+        return gradioAudioReadyPromise;
+      }
+
+      function setPlayIcon(isPlaying) {
+        if (!playIcon) return;
+        if (isPlaying) {
+          playIcon.innerHTML = '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>';
+        } else {
+          playIcon.innerHTML = '<path d="M8 5.74537C8 5.06444 8.77346 4.64713 9.35139 5.02248L18.0227 10.2771C18.5518 10.6219 18.5518 11.3781 18.0227 11.7229L9.35139 16.9775C8.77346 17.3529 8 16.9356 8 16.2546V5.74537Z"></path>';
+        }
+      }
+
+      function formatTime(seconds) {
+        if (!isFinite(seconds) || seconds < 0) return '0:00';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+      }
+
+      function updateGradioTimes() {
+        if (!gradioWaveform) return;
+        const current = gradioWaveform.getCurrentTime ? gradioWaveform.getCurrentTime() : 0;
+        const duration = gradioWaveform.getDuration ? gradioWaveform.getDuration() : 0;
+        if (gradioCurrentTime) gradioCurrentTime.textContent = formatTime(current);
+        if (audioDuration) audioDuration.textContent = formatTime(duration);
+      }
+
+      function setWaveformPlaybackRate(rate) {
+        if (!gradioWaveform) return;
+        if (typeof gradioWaveform.setPlaybackRate === 'function') {
+          gradioWaveform.setPlaybackRate(rate);
+        } else if (gradioWaveform.getMediaElement) {
+          gradioWaveform.getMediaElement().playbackRate = rate;
+        }
+      }
+
+      function getGradioSkipSeconds(source) {
+        const duration = gradioWaveform && gradioWaveform.getDuration ? gradioWaveform.getDuration() : 0;
+        if (source && typeof source.gradioSkipLength === 'function') {
+          return source.gradioSkipLength(5, duration);
+        }
+        return duration / 100 * 5 || 5;
+      }
+
+      async function setGeneratedAudio(audioUrl) {
+        gradioAudioUrl = audioUrl;
+        audioPlayer.src = audioUrl;
+        audioPlayer.load();
+        downloadBtn.href = audioUrl;
+        downloadBtn.setAttribute('download', 'shengchuang-tts-' + Date.now() + '.wav');
+        downloadBtn.style.display = 'inline-flex';
+        if (gradioAudioCard) {
+          gradioAudioCard.classList.remove('is-empty');
+          gradioAudioCard.classList.add('has-audio');
+        }
+        if (waveformContainer) waveformContainer.innerHTML = '';
+        setPlayIcon(false);
+        if (gradioCurrentTime) gradioCurrentTime.textContent = '0:00';
+        if (audioDuration) audioDuration.textContent = '0:00';
+
+        try {
+          const source = await getGradioAudioSource();
+          if (gradioWaveform) {
+            gradioWaveform.destroy();
+            gradioWaveform = null;
+          }
+          gradioWaveform = source.WaveSurfer.create({
+            container: waveformContainer,
+            height: 92,
+            waveColor: '#ff7a00',
+            progressColor: '#ff7a00',
+            cursorColor: '#e8ddff',
+            cursorWidth: 4,
+            barWidth: 3,
+            barGap: 5,
+            barRadius: 3,
+            normalize: true,
+            interact: true,
+            dragToSeek: true,
+            hideScrollbar: true,
+            fillParent: true
+          });
+          gradioWaveform.on('play', function() { setPlayIcon(true); });
+          gradioWaveform.on('pause', function() { setPlayIcon(false); });
+          gradioWaveform.on('ready', updateGradioTimes);
+          gradioWaveform.on('timeupdate', updateGradioTimes);
+          gradioWaveform.on('audioprocess', updateGradioTimes);
+          gradioWaveform.on('interaction', updateGradioTimes);
+          gradioWaveform.on('finish', function() { setPlayIcon(false); updateGradioTimes(); });
+          await gradioWaveform.load(audioUrl);
+          setWaveformPlaybackRate(playbackRates[playbackRateIndex]);
+        } catch (err) {
+          console.error('Gradio audio player error:', err);
+          audioPlayer.controls = true;
+          audioPlayer.style.display = 'block';
+        }
+      }
+
+      if (playBtn) {
+        playBtn.addEventListener('click', async function() {
+          if (!gradioAudioUrl) {
+            alert('请先生成音频');
+            return;
+          }
+          try {
+            if (gradioWaveform) {
+              await gradioWaveform.playPause();
+            } else if (audioPlayer.paused) {
+              await audioPlayer.play();
+            } else {
+              audioPlayer.pause();
+            }
+          } catch (err) {
+            alert('播放失败，请重新生成或点击下载试听');
+            console.error('Audio play error:', err);
+          }
+        });
+      }
+
+      if (gradioSpeedBtn) {
+        gradioSpeedBtn.addEventListener('click', function() {
+          playbackRateIndex = (playbackRateIndex + 1) % playbackRates.length;
+          const rate = playbackRates[playbackRateIndex];
+          gradioSpeedBtn.textContent = rate + 'x';
+          setWaveformPlaybackRate(rate);
+        });
+      }
+
+      if (gradioRewindBtn) {
+        gradioRewindBtn.addEventListener('click', async function() {
+          if (!gradioWaveform) return;
+          const source = await getGradioAudioSource();
+          gradioWaveform.skip(-getGradioSkipSeconds(source));
+          updateGradioTimes();
+        });
+      }
+
+      if (gradioSkipBtn) {
+        gradioSkipBtn.addEventListener('click', async function() {
+          if (!gradioWaveform) return;
+          const source = await getGradioAudioSource();
+          gradioWaveform.skip(getGradioSkipSeconds(source));
+          updateGradioTimes();
+        });
+      }
+
+      if (gradioVolumeBtn) {
+        gradioVolumeBtn.addEventListener('click', function() {
+          if (gradioVolumePopover) gradioVolumePopover.hidden = !gradioVolumePopover.hidden;
+        });
+      }
+
+      if (gradioVolumeSlider) {
+        gradioVolumeSlider.addEventListener('input', function(e) {
+          const value = parseFloat(e.target.value);
+          previousVolume = value > 0 ? value : previousVolume;
+          if (gradioWaveform) gradioWaveform.setVolume(value);
+          audioPlayer.volume = value;
+        });
+      }
+
+      if (gradioShareBtn) {
+        gradioShareBtn.addEventListener('click', async function() {
+          if (!gradioAudioUrl) {
+            alert('请先生成音频');
+            return;
+          }
+          if (navigator.share) {
+            try {
+              await navigator.share({ title: '声创科技生成音频', url: gradioAudioUrl });
+              return;
+            } catch (err) {
+              if (err && err.name === 'AbortError') return;
+            }
+          }
+          await navigator.clipboard.writeText(new URL(gradioAudioUrl, window.location.href).href);
+          alert('音频链接已复制');
+        });
+      }
+
+      audioPlayer.addEventListener('loadedmetadata', function() {
+        if (!gradioWaveform && audioDuration) audioDuration.textContent = formatTime(this.duration);
+      });
+
+      // ========== Init char count ==========
+      charCount.textContent = inputText.value.length + ' 字';
+
+    })();
+    </script>
+</body>
+</html>
