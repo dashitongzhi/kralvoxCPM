@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import json
+import html
 import logging
 import random
 import urllib.error
@@ -150,6 +151,87 @@ _CUSTOM_CSS = """
     color: var(--body-text-color-subdued);
     font-size: 0.95rem;
 }
+.service-readiness {
+    border: 1px solid var(--border-color-primary);
+    border-radius: 10px;
+    background: var(--block-background-fill);
+    padding: 14px 16px;
+    margin: 0 0 1rem 0;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.service-readiness__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.service-readiness__title {
+    font-weight: 700;
+    color: var(--body-text-color);
+}
+.service-readiness__summary {
+    color: var(--body-text-color-subdued);
+    font-size: 0.86rem;
+}
+.service-readiness__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.service-status {
+    border: 1px solid var(--border-color-primary);
+    border-radius: 8px;
+    background: var(--background-fill-primary);
+    padding: 10px 12px;
+    min-width: 0;
+}
+.service-status__line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    font-weight: 650;
+}
+.service-status__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+.service-status--ok .service-status__dot { background: #16a34a; }
+.service-status--warn .service-status__dot { background: #d97706; }
+.service-status--error .service-status__dot { background: #dc2626; }
+.service-status__detail {
+    margin-top: 6px;
+    color: var(--body-text-color-subdued);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+.generation-alert {
+    border: 1px solid #fecaca;
+    border-left: 4px solid #dc2626;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #7f1d1d;
+    padding: 10px 12px;
+    margin-top: 10px;
+    line-height: 1.5;
+}
+.generation-alert__title {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+@media (max-width: 900px) {
+    .service-readiness__grid {
+        grid-template-columns: 1fr;
+    }
+    .service-readiness__header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
 
 /* Toggle switch style */
 .switch-toggle {
@@ -198,6 +280,99 @@ _APP_THEME = gr.themes.Soft(
 
 
 # ---------- Dialect rewrite ----------
+
+
+def _escape_html(value: str) -> str:
+    return html.escape(value or "", quote=True)
+
+
+def _readiness_card(title: str, status: str, detail: str) -> str:
+    status_label = {"ok": "正常", "warn": "待确认", "error": "异常"}.get(status, "待确认")
+    return (
+        f'<div class="service-status service-status--{status}">'
+        '<div class="service-status__line">'
+        '<span class="service-status__dot" aria-hidden="true"></span>'
+        f"<span>{_escape_html(title)} · {status_label}</span>"
+        "</div>"
+        f'<div class="service-status__detail">{_escape_html(detail)}</div>'
+        "</div>"
+    )
+
+
+def _build_generation_error_html(error: Exception) -> str:
+    message = str(error).strip() or error.__class__.__name__
+    return (
+        '<div class="generation-alert">'
+        '<div class="generation-alert__title">生成失败</div>'
+        f"<div>{_escape_html(message)}</div>"
+        "</div>"
+    )
+
+
+def _check_kralapi_connectivity() -> Tuple[str, str]:
+    if not KRALAPI_API_KEY:
+        return "error", "未配置 KRALAPI_API_KEY，自动方言改写不可用。"
+
+    request = urllib.request.Request(
+        f"{KRALAPI_BASE_URL}/v1/models",
+        headers={"Authorization": f"Bearer {KRALAPI_API_KEY}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            if 200 <= response.status < 300:
+                return "ok", f"已连通 {KRALAPI_BASE_URL}，改写模型：{KRALAPI_MODEL}。"
+            return "warn", f"接口返回 HTTP {response.status}，生成时可能需要进一步确认。"
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            return "error", f"接口可达，但密钥认证失败：HTTP {exc.code}。"
+        return "warn", f"接口可达但返回 HTTP {exc.code}，生成时可能失败。"
+    except urllib.error.URLError as exc:
+        return "error", f"无法连通 {KRALAPI_BASE_URL}：{exc.reason}"
+    except TimeoutError:
+        return "error", f"连接 {KRALAPI_BASE_URL} 超时。"
+
+
+def _check_model_path(model_id: str) -> Tuple[str, str]:
+    model_value = (model_id or "").strip()
+    if not model_value:
+        return "error", "未传入模型路径或模型 ID。"
+
+    model_path = Path(model_value).expanduser()
+    if model_path.exists():
+        if model_path.is_dir():
+            return "ok", f"本地模型目录存在：{model_path}"
+        return "warn", f"路径存在但不是目录：{model_path}"
+
+    looks_like_local_path = model_value.startswith(("/", "./", "../", "~"))
+    if looks_like_local_path:
+        return "error", f"本地模型路径不存在：{model_path}"
+    return "warn", f"当前使用模型 ID：{model_value}；未检查本地权重目录。"
+
+
+def build_service_readiness_html(model_id: str) -> str:
+    api_key_status = "ok" if KRALAPI_API_KEY else "error"
+    api_key_detail = (
+        "已读取 KRALAPI_API_KEY，页面可调用方言改写。"
+        if KRALAPI_API_KEY
+        else "未读取 KRALAPI_API_KEY；如开启自动方言改写，生成会失败。"
+    )
+    rewrite_status, rewrite_detail = _check_kralapi_connectivity()
+    model_status, model_detail = _check_model_path(model_id)
+    overall = "服务就绪" if all(s == "ok" for s in (api_key_status, rewrite_status, model_status)) else "需要处理配置项"
+    return (
+        '<section class="service-readiness">'
+        '<div class="service-readiness__header">'
+        '<div class="service-readiness__title">服务就绪状态</div>'
+        f'<div class="service-readiness__summary">{_escape_html(overall)} · 不提前加载 VoxCPM 大模型</div>'
+        "</div>"
+        '<div class="service-readiness__grid">'
+        + _readiness_card("改写密钥", api_key_status, api_key_detail)
+        + _readiness_card("方言改写接口", rewrite_status, rewrite_detail)
+        + _readiness_card("模型路径", model_status, model_detail)
+        + "</div>"
+        "</section>"
+    )
 
 
 def _clean_llm_text(text: str) -> str:
@@ -426,28 +601,37 @@ def create_demo_interface(demo: VoxCPMDemo):
         dit_steps: int,
         seed_value,
     ):
-        actual_prompt_text = prompt_text_value.strip() if use_prompt_text else ""
-        input_text = (text or "").strip()
-        rewritten_text = (
-            rewrite_mandarin_to_dialect(input_text, dialect, role_description)
-            if auto_rewrite and not use_prompt_text
-            else input_text
-        )
-        control_parts = [dialect.strip() if dialect else "", role_description.strip() if role_description else ""]
-        actual_control = "" if use_prompt_text else "，".join(part for part in control_parts if part)
-        seed = _coerce_seed(seed_value)
-        sr, wav_np, last_successful_seed = demo.generate_tts_audio(
-            text_input=rewritten_text,
-            control_instruction=actual_control,
-            reference_wav_path_input=ref_wav,
-            prompt_text=actual_prompt_text,
-            cfg_value_input=cfg_value,
-            do_normalize=do_normalize,
-            denoise=denoise,
-            inference_timesteps=int(dit_steps),
-            seed=seed,
-        )
-        return rewritten_text, (sr, wav_np), last_successful_seed
+        try:
+            actual_prompt_text = prompt_text_value.strip() if use_prompt_text else ""
+            input_text = (text or "").strip()
+            rewritten_text = (
+                rewrite_mandarin_to_dialect(input_text, dialect, role_description)
+                if auto_rewrite and not use_prompt_text
+                else input_text
+            )
+            control_parts = [dialect.strip() if dialect else "", role_description.strip() if role_description else ""]
+            actual_control = "" if use_prompt_text else "，".join(part for part in control_parts if part)
+            seed = _coerce_seed(seed_value)
+            sr, wav_np, last_successful_seed = demo.generate_tts_audio(
+                text_input=rewritten_text,
+                control_instruction=actual_control,
+                reference_wav_path_input=ref_wav,
+                prompt_text=actual_prompt_text,
+                cfg_value_input=cfg_value,
+                do_normalize=do_normalize,
+                denoise=denoise,
+                inference_timesteps=int(dit_steps),
+                seed=seed,
+            )
+            return rewritten_text, (sr, wav_np), last_successful_seed, gr.update(value="", visible=False)
+        except Exception as exc:
+            logger.exception("TTS generation failed")
+            return (
+                gr.update(),
+                None,
+                seed_value,
+                gr.update(value=_build_generation_error_html(exc), visible=True),
+            )
 
     def _on_toggle_instant(checked):
         """Instant UI toggle — no ASR, no blocking."""
@@ -483,6 +667,7 @@ def create_demo_interface(demo: VoxCPMDemo):
         )
 
         gr.Markdown(I18N("usage_instructions"))
+        gr.HTML(build_service_readiness_html(demo._model_id))
 
         with gr.Row():
             with gr.Column():
@@ -573,6 +758,7 @@ def create_demo_interface(demo: VoxCPMDemo):
                         )
 
                 run_btn = gr.Button(I18N("generate_btn"), variant="primary", size="lg")
+                generation_error = gr.HTML(value="", visible=False)
 
             with gr.Column():
                 rewritten_text_output = gr.Textbox(
@@ -622,7 +808,7 @@ def create_demo_interface(demo: VoxCPMDemo):
                 dit_steps,
                 seed_value,
             ],
-            outputs=[rewritten_text_output, audio_output, seed_value],
+            outputs=[rewritten_text_output, audio_output, seed_value, generation_error],
             show_progress=True,
             api_name="generate",
         )
