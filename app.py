@@ -76,12 +76,13 @@ _ZH_TRANSLATIONS = {
     "role_placeholder": "例如：暴躁的广东中年男教练，语速快，声音粗粝，充满无奈和愤怒",
     "target_text_label": "普通话文本",
     "rewritten_text_label": "已改写的方言文本",
-    "rewritten_text_placeholder": "点击生成后，这里会显示大模型改写出的方言文本。",
-    "generate_btn": "改写并生成语音",
+    "rewritten_text_placeholder": "先点击“先改写”，这里会显示方言文本；你也可以手动调整后再生成语音。",
+    "rewrite_btn": "先改写",
+    "generate_btn": "生成语音",
     "generated_audio_label": "生成结果",
     "advanced_settings_title": "高级设置",
-    "auto_rewrite_label": "自动把普通话改写成方言",
-    "auto_rewrite_info": "开启后先调用大模型生成方言文本，再交给语音模型合成。关闭后会直接合成普通话文本。",
+    "auto_rewrite_label": "生成时自动补改写",
+    "auto_rewrite_info": "如果没有先填写“已改写的方言文本”，生成语音时会自动补一次方言改写。",
     "ref_denoise_label": "参考音频降噪增强",
     "ref_denoise_info": "克隆前使用 ZipEnhancer 对参考音频进行降噪处理。",
     "normalize_label": "文本规范化",
@@ -223,6 +224,26 @@ _CUSTOM_CSS = """
     font-weight: 700;
     margin-bottom: 4px;
 }
+.workflow-alert {
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #2563eb;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    padding: 10px 12px;
+    margin-top: 10px;
+    line-height: 1.5;
+}
+.workflow-alert--success {
+    border-color: #bbf7d0;
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+    color: #14532d;
+}
+.workflow-alert__title {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
 @media (max-width: 900px) {
     .service-readiness__grid {
         grid-template-columns: 1fr;
@@ -304,6 +325,16 @@ def _build_generation_error_html(error: Exception) -> str:
     return (
         '<div class="generation-alert">'
         '<div class="generation-alert__title">生成失败</div>'
+        f"<div>{_escape_html(message)}</div>"
+        "</div>"
+    )
+
+
+def _build_workflow_message_html(title: str, message: str, kind: str = "info") -> str:
+    class_name = "workflow-alert workflow-alert--success" if kind == "success" else "workflow-alert"
+    return (
+        f'<div class="{class_name}">'
+        f'<div class="workflow-alert__title">{_escape_html(title)}</div>'
         f"<div>{_escape_html(message)}</div>"
         "</div>"
     )
@@ -587,8 +618,47 @@ def create_demo_interface(demo: VoxCPMDemo):
     def _on_random_seed_toggle(checked):
         return gr.update(interactive=not checked)
 
+    def _rewrite_text_only(
+        text: str,
+        dialect: str,
+        role_description: str,
+        use_prompt_text: bool,
+    ):
+        try:
+            input_text = (text or "").strip()
+            if use_prompt_text:
+                return (
+                    gr.update(value=input_text, interactive=True),
+                    gr.update(
+                        value=_build_workflow_message_html(
+                            "极致克隆模式已开启",
+                            "该模式保持原有续写逻辑，不使用声音/方言描述；如需方言文本，可关闭极致克隆后再改写。",
+                        ),
+                        visible=True,
+                    ),
+                )
+            rewritten_text = rewrite_mandarin_to_dialect(input_text, dialect, role_description)
+            return (
+                gr.update(value=rewritten_text, interactive=True),
+                gr.update(
+                    value=_build_workflow_message_html(
+                        "方言文本已生成",
+                        "你可以直接生成语音，也可以先手动微调右侧文本。",
+                        kind="success",
+                    ),
+                    visible=True,
+                ),
+            )
+        except Exception as exc:
+            logger.exception("Dialect rewrite failed")
+            return (
+                gr.update(),
+                gr.update(value=_build_generation_error_html(exc), visible=True),
+            )
+
     def _generate(
         text: str,
+        rewritten_text_value: str,
         dialect: str,
         role_description: str,
         ref_wav: Optional[str],
@@ -604,16 +674,24 @@ def create_demo_interface(demo: VoxCPMDemo):
         try:
             actual_prompt_text = prompt_text_value.strip() if use_prompt_text else ""
             input_text = (text or "").strip()
-            rewritten_text = (
-                rewrite_mandarin_to_dialect(input_text, dialect, role_description)
-                if auto_rewrite and not use_prompt_text
-                else input_text
-            )
+            edited_rewritten_text = (rewritten_text_value or "").strip()
+            if use_prompt_text:
+                synthesis_text = input_text
+                display_rewritten_text = edited_rewritten_text
+            elif edited_rewritten_text:
+                synthesis_text = edited_rewritten_text
+                display_rewritten_text = edited_rewritten_text
+            elif auto_rewrite:
+                synthesis_text = rewrite_mandarin_to_dialect(input_text, dialect, role_description)
+                display_rewritten_text = synthesis_text
+            else:
+                synthesis_text = input_text
+                display_rewritten_text = edited_rewritten_text
             control_parts = [dialect.strip() if dialect else "", role_description.strip() if role_description else ""]
             actual_control = "" if use_prompt_text else "，".join(part for part in control_parts if part)
             seed = _coerce_seed(seed_value)
             sr, wav_np, last_successful_seed = demo.generate_tts_audio(
-                text_input=rewritten_text,
+                text_input=synthesis_text,
                 control_instruction=actual_control,
                 reference_wav_path_input=ref_wav,
                 prompt_text=actual_prompt_text,
@@ -623,7 +701,7 @@ def create_demo_interface(demo: VoxCPMDemo):
                 inference_timesteps=int(dit_steps),
                 seed=seed,
             )
-            return rewritten_text, (sr, wav_np), last_successful_seed, gr.update(value="", visible=False)
+            return display_rewritten_text, (sr, wav_np), last_successful_seed, gr.update(value="", visible=False)
         except Exception as exc:
             logger.exception("TTS generation failed")
             return (
@@ -757,7 +835,9 @@ def create_demo_interface(demo: VoxCPMDemo):
                             info=I18N("random_seed_info"),
                         )
 
-                run_btn = gr.Button(I18N("generate_btn"), variant="primary", size="lg")
+                with gr.Row():
+                    rewrite_btn = gr.Button(I18N("rewrite_btn"), variant="secondary")
+                    run_btn = gr.Button(I18N("generate_btn"), variant="primary", size="lg")
                 generation_error = gr.HTML(value="", visible=False)
 
             with gr.Column():
@@ -766,7 +846,7 @@ def create_demo_interface(demo: VoxCPMDemo):
                     label=I18N("rewritten_text_label"),
                     placeholder=I18N("rewritten_text_placeholder"),
                     lines=5,
-                    interactive=False,
+                    interactive=True,
                 )
                 audio_output = gr.Audio(label=I18N("generated_audio_label"))
                 gr.Markdown(I18N("examples_footer"))
@@ -787,6 +867,18 @@ def create_demo_interface(demo: VoxCPMDemo):
             outputs=[seed_value],
         )
 
+        rewrite_btn.click(
+            fn=_rewrite_text_only,
+            inputs=[
+                text,
+                dialect,
+                role_description,
+                show_prompt_text,
+            ],
+            outputs=[rewritten_text_output, generation_error],
+            show_progress=True,
+        )
+
         run_btn.click(
             fn=_prepare_seed,
             inputs=[random_seed, seed_value],
@@ -796,6 +888,7 @@ def create_demo_interface(demo: VoxCPMDemo):
             fn=_generate,
             inputs=[
                 text,
+                rewritten_text_output,
                 dialect,
                 role_description,
                 reference_wav,
