@@ -13,6 +13,10 @@ elif command -v python >/dev/null 2>&1; then
   PYTHON_BIN="python"
 elif command -v python3 >/dev/null 2>&1; then
   PYTHON_BIN="python3"
+elif [[ -x "/root/miniconda3/bin/python" ]]; then
+  PYTHON_BIN="/root/miniconda3/bin/python"
+elif [[ -x "/opt/conda/bin/python" ]]; then
+  PYTHON_BIN="/opt/conda/bin/python"
 else
   PYTHON_BIN="python"
 fi
