@@ -3,6 +3,17 @@
 ## SSH Access
 
 - Remote access uses SSH public key authentication with passwordless login.
+- The SSH public key identity is expected to use this `~/.ssh/config` style entry:
+
+```sshconfig
+Host connect.bjb1.seetacloud.com
+  HostName connect.bjb1.seetacloud.com
+  Port 17591
+  User root
+  IdentityFile ~/.ssh/id_ed25519
+  IdentitiesOnly yes
+```
+
 - Connect to the remote host with:
 
 ```sh
