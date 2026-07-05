@@ -18,15 +18,27 @@ pip install -e .
 
 如果机器已有 conda，也可以使用 conda 环境；重点是不要使用系统 Python 直接安装大依赖。
 
-2. 下载或放置预训练模型。
+2. 准备远程数据盘和预训练模型。
 
-推荐把模型放到数据盘，例如：
+推荐统一把远程云盘/数据盘挂到 `DATA_ROOT`，例如：
 
 ```text
-/root/autodl-tmp/models/VoxCPM2
+DATA_ROOT=/root/autodl-tmp
 ```
 
-目录内至少需要包含：
+8808 demo 默认使用这个目录结构：
+
+```text
+$DATA_ROOT/
+  models/
+    VoxCPM2/
+  cache/
+    hf/
+    modelscope/
+    torch/
+```
+
+其中模型目录默认是 `$DATA_ROOT/models/VoxCPM2`，目录内至少需要包含：
 
 ```text
 config.json
@@ -52,17 +64,28 @@ cp .env.example .env
 KRALAPI_BASE_URL=https://kralapi.kralai.tech
 KRALAPI_MODEL=gpt-5.5
 KRALAPI_API_KEY=你的接口密钥
-VOXCPM_MODEL_PATH=/root/autodl-tmp/models/VoxCPM2
+DATA_ROOT=/root/autodl-tmp
 HOST=0.0.0.0
 PORT=8808
 DEVICE=cuda
 ```
 
+设置 `DATA_ROOT` 后，启动脚本会默认派生：
+
+```bash
+VOXCPM_MODEL_PATH=$DATA_ROOT/models/VoxCPM2
+HF_HOME=$DATA_ROOT/cache/hf
+MODELSCOPE_CACHE=$DATA_ROOT/cache/modelscope
+TORCH_HOME=$DATA_ROOT/cache/torch
+```
+
+如果模型或缓存确实放在别处，可以在 `.env` 里单独覆盖这些变量。
+
 不要把真实 `.env`、`.runtime.env` 或 API key 提交到仓库。
 
 ## 启动
 
-推荐使用仓库内的最小启动脚本。脚本会在启动前检查 `.env`、`KRALAPI_API_KEY`、`VOXCPM_MODEL_PATH`、模型关键文件、Python 依赖、CUDA 可用性和 `8808` 端口占用；如果缺配置或路径不对，会直接给出明确报错。
+推荐使用仓库内的最小启动脚本。脚本会在启动前检查 `.env`、`KRALAPI_API_KEY`、`DATA_ROOT` 挂载目录、`models`/`cache` 子目录、`VOXCPM_MODEL_PATH`、模型关键文件、Python 依赖、CUDA 可用性和 `8808` 端口占用；如果缺配置或路径不对，会直接给出明确报错。
 
 ```bash
 chmod +x scripts/run_dialect_demo.sh
@@ -86,6 +109,12 @@ ssh -p 17591 -L 8808:127.0.0.1:8808 root@connect.bjb1.seetacloud.com
 ```bash
 PORT=8810 DEVICE=auto scripts/run_dialect_demo.sh
 ```
+
+常见数据盘报错含义：
+
+- `DATA_ROOT mount directory does not exist`：云盘/数据盘没有挂载好，或 `DATA_ROOT` 写错了。
+- `DATA_ROOT is reachable, but its required demo subdirectories are missing`：挂载目录能访问，但还没准备 `models/`、`cache/` 目录。
+- `Model directory is missing under DATA_ROOT` 或 `Model directory is incomplete`：云盘挂载是通的，但 VoxCPM2 模型目录不存在或模型文件不全。
 
 也可以不用脚本，手动启动：
 
@@ -115,10 +144,10 @@ python app.py \
 本仓库不提交大模型、数据集、缓存和生成音频。推荐目录：
 
 ```text
-models/       # 本机预训练模型，可自建
-datasets/     # 本机训练或测试数据，可自建
-outputs/      # 生成音频，可自建
-cache/        # Hugging Face / ModelScope / Torch 缓存，可自建
+$DATA_ROOT/models/       # 远程数据盘上的预训练模型
+$DATA_ROOT/datasets/     # 训练或测试数据，可自建
+$DATA_ROOT/outputs/      # 生成音频，可自建
+$DATA_ROOT/cache/        # Hugging Face / ModelScope / Torch 缓存
 ```
 
 这些目录已在 `.gitignore` 中忽略。换机器时，把仓库克隆下来，再把预训练模型和数据集放到对应目录或通过 `--model-id` 指向实际路径即可。
