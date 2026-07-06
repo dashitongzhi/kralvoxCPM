@@ -16,6 +16,7 @@ from pathlib import Path
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import voxcpm
+import presets as preset_store
 from voxcpm.model.utils import resolve_runtime_device
 
 logging.basicConfig(
@@ -95,6 +96,14 @@ _ZH_TRANSLATIONS = {
     "seed_info": "用于复现生成结果；生成成功后会显示实际使用的种子。",
     "random_seed_label": "每次自动随机",
     "random_seed_info": "每次生成前自动换一个随机种子。",
+    "preset_section_title": "预设配置",
+    "preset_name_label": "预设名称",
+    "preset_name_placeholder": "例如：粤语暴躁教练 / 四川女店主",
+    "save_preset_btn": "保存",
+    "load_preset_label": "选择预设",
+    "apply_preset_btn": "应用",
+    "delete_preset_btn": "删除",
+    "refresh_preset_btn": "刷新",
     "usage_instructions": _USAGE_INSTRUCTIONS_ZH,
     "examples_footer": _EXAMPLES_FOOTER_ZH,
 }
@@ -114,6 +123,17 @@ for _d in _I18N_TRANSLATIONS.values():
             _d.setdefault(_k, _v)
 
 I18N = gr.I18n(**_I18N_TRANSLATIONS)
+
+_PRESET_TOASTS = {
+    "name_empty": "请先输入预设名称。",
+    "save_done": "预设已保存。",
+    "save_overwritten": "同名预设已覆盖。",
+    "save_failed": "保存预设失败：{error}",
+    "select_first": "请先选择一个预设。",
+    "missing": "预设不存在或已被删除。",
+    "delete_done": "预设已删除。",
+    "reference_missing": "预设中的参考音频文件不存在，已跳过音频。",
+}
 
 DEFAULT_TARGET_TEXT = "踩离合！踩刹车啊！你往哪儿开呢？前面是树你看不见吗？我教了你八百遍了，打死方向盘！你是不是想把车给我开到沟里去？"
 
@@ -736,6 +756,144 @@ def create_demo_interface(demo: VoxCPMDemo):
             logger.warning(f"ASR recognition failed: {e}")
             return gr.update(value="")
 
+    _PRESET_APPLY_OUTPUT_COUNT = 15
+
+    def _collect_preset_data(
+        dialect_value: str,
+        role_value: str,
+        text_value: str,
+        rewritten_value: str,
+        use_prompt_text: bool,
+        prompt_text_value: str,
+        auto_rewrite: bool,
+        cfg_value_input: float,
+        do_normalize: bool,
+        denoise: bool,
+        dit_steps_value: int,
+        seed_value,
+        random_seed_value: bool,
+    ) -> dict:
+        return {
+            "dialect": dialect_value or "粤语",
+            "role_description": role_value or "",
+            "mandarin_text": text_value or "",
+            "rewritten_text": rewritten_value or "",
+            "use_prompt_text": bool(use_prompt_text),
+            "prompt_text": prompt_text_value or "",
+            "auto_rewrite": bool(auto_rewrite),
+            "cfg_value": float(cfg_value_input) if cfg_value_input is not None else 2.0,
+            "do_normalize": bool(do_normalize),
+            "denoise": bool(denoise),
+            "dit_steps": int(dit_steps_value) if dit_steps_value is not None else 10,
+            "seed": _coerce_seed(seed_value),
+            "random_seed": bool(random_seed_value),
+        }
+
+    def _refresh_preset_dropdown(selected: str = ""):
+        choices = preset_store.list_presets()
+        value = selected if selected in choices else None
+        return gr.update(choices=choices, value=value, interactive=bool(choices))
+
+    def _empty_preset_apply_updates():
+        return tuple(gr.update() for _ in range(_PRESET_APPLY_OUTPUT_COUNT))
+
+    def _on_preset_save(
+        name,
+        ref_wav,
+        dialect_value,
+        role_value,
+        text_value,
+        rewritten_value,
+        use_prompt_text,
+        prompt_text_value,
+        auto_rewrite,
+        cfg_value_input,
+        do_normalize,
+        denoise,
+        dit_steps_value,
+        seed_value,
+        random_seed_value,
+    ):
+        name = (name or "").strip()
+        if not name:
+            gr.Warning(_PRESET_TOASTS["name_empty"])
+            return gr.update(), gr.update()
+
+        safe_name = preset_store.safe_preset_name(name)
+        existed = preset_store.preset_exists(safe_name)
+        data = _collect_preset_data(
+            dialect_value,
+            role_value,
+            text_value,
+            rewritten_value,
+            use_prompt_text,
+            prompt_text_value,
+            auto_rewrite,
+            cfg_value_input,
+            do_normalize,
+            denoise,
+            dit_steps_value,
+            seed_value,
+            random_seed_value,
+        )
+        try:
+            saved_name = preset_store.save_preset(name, data, reference_audio=ref_wav)
+        except Exception as exc:
+            logger.exception("Preset save failed")
+            gr.Warning(_PRESET_TOASTS["save_failed"].format(error=exc))
+            return gr.update(), gr.update()
+
+        gr.Info(_PRESET_TOASTS["save_overwritten" if existed else "save_done"])
+        return gr.update(value=""), _refresh_preset_dropdown(saved_name)
+
+    def _on_preset_apply(name):
+        if not name:
+            gr.Warning(_PRESET_TOASTS["select_first"])
+            return _empty_preset_apply_updates()
+
+        data = preset_store.load_preset(name)
+        if data is None:
+            gr.Warning(_PRESET_TOASTS["missing"])
+            return _empty_preset_apply_updates()
+
+        ref_path = data.get("reference_audio") or None
+        if ref_path and not os.path.exists(ref_path):
+            gr.Warning(_PRESET_TOASTS["reference_missing"])
+            ref_path = None
+
+        use_prompt = bool(data.get("use_prompt_text", False))
+        random_seed_value = bool(data.get("random_seed", True))
+        return (
+            gr.update(value=ref_path),
+            gr.update(value=data.get("dialect", "粤语")),
+            gr.update(value=data.get("role_description", ""), visible=not use_prompt),
+            gr.update(value=data.get("mandarin_text", "")),
+            gr.update(value=data.get("rewritten_text", ""), interactive=True),
+            gr.update(value=use_prompt),
+            gr.update(value=data.get("prompt_text", ""), visible=use_prompt),
+            gr.update(value=data.get("auto_rewrite", True)),
+            gr.update(value=data.get("cfg_value", 2.0)),
+            gr.update(value=data.get("do_normalize", False)),
+            gr.update(value=data.get("denoise", False)),
+            gr.update(value=data.get("dit_steps", 10)),
+            gr.update(value=data.get("seed"), interactive=not random_seed_value),
+            gr.update(value=random_seed_value),
+            gr.update(value="", visible=False),
+        )
+
+    def _on_preset_delete(name):
+        if not name:
+            gr.Warning(_PRESET_TOASTS["select_first"])
+            return gr.update()
+        if preset_store.delete_preset(name):
+            gr.Info(_PRESET_TOASTS["delete_done"])
+        else:
+            gr.Warning(_PRESET_TOASTS["missing"])
+        return _refresh_preset_dropdown()
+
+    def _on_preset_refresh():
+        return _refresh_preset_dropdown()
+
     with gr.Blocks() as interface:
         gr.HTML(
             '<div class="brand-header">'
@@ -835,6 +993,29 @@ def create_demo_interface(demo: VoxCPMDemo):
                             info=I18N("random_seed_info"),
                         )
 
+                with gr.Accordion(I18N("preset_section_title"), open=False):
+                    with gr.Row():
+                        preset_name = gr.Textbox(
+                            value="",
+                            label=I18N("preset_name_label"),
+                            placeholder=I18N("preset_name_placeholder"),
+                            scale=3,
+                        )
+                        save_preset_btn = gr.Button(I18N("save_preset_btn"), scale=1)
+                    with gr.Row():
+                        preset_choices = preset_store.list_presets()
+                        preset_dropdown = gr.Dropdown(
+                            choices=preset_choices,
+                            value=None,
+                            label=I18N("load_preset_label"),
+                            allow_custom_value=False,
+                            interactive=bool(preset_choices),
+                            scale=3,
+                        )
+                        apply_preset_btn = gr.Button(I18N("apply_preset_btn"), scale=1)
+                        delete_preset_btn = gr.Button(I18N("delete_preset_btn"), scale=1)
+                        refresh_preset_btn = gr.Button(I18N("refresh_preset_btn"), scale=1)
+
                 with gr.Row():
                     rewrite_btn = gr.Button(I18N("rewrite_btn"), variant="secondary")
                     run_btn = gr.Button(I18N("generate_btn"), variant="primary", size="lg")
@@ -904,6 +1085,66 @@ def create_demo_interface(demo: VoxCPMDemo):
             outputs=[rewritten_text_output, audio_output, seed_value, generation_error],
             show_progress=True,
             api_name="generate",
+        )
+
+        preset_save_inputs = [
+            preset_name,
+            reference_wav,
+            dialect,
+            role_description,
+            text,
+            rewritten_text_output,
+            show_prompt_text,
+            prompt_text,
+            AutoRewriteText,
+            cfg_value,
+            DoNormalizeText,
+            DoDenoisePromptAudio,
+            dit_steps,
+            seed_value,
+            random_seed,
+        ]
+        preset_apply_outputs = [
+            reference_wav,
+            dialect,
+            role_description,
+            text,
+            rewritten_text_output,
+            show_prompt_text,
+            prompt_text,
+            AutoRewriteText,
+            cfg_value,
+            DoNormalizeText,
+            DoDenoisePromptAudio,
+            dit_steps,
+            seed_value,
+            random_seed,
+            generation_error,
+        ]
+        save_preset_btn.click(
+            fn=_on_preset_save,
+            inputs=preset_save_inputs,
+            outputs=[preset_name, preset_dropdown],
+        )
+        apply_preset_btn.click(
+            fn=_on_preset_apply,
+            inputs=[preset_dropdown],
+            outputs=preset_apply_outputs,
+        )
+        delete_preset_btn.click(
+            fn=_on_preset_delete,
+            inputs=[preset_dropdown],
+            outputs=[preset_dropdown],
+        )
+        refresh_preset_btn.click(
+            fn=_on_preset_refresh,
+            inputs=[],
+            outputs=[preset_dropdown],
+        )
+        interface.load(
+            fn=_on_preset_refresh,
+            inputs=[],
+            outputs=[preset_dropdown],
         )
 
     return interface
