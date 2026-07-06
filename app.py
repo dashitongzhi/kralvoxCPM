@@ -153,6 +153,14 @@ DEFAULT_DIALECTS = [
 KRALAPI_BASE_URL = os.getenv("KRALAPI_BASE_URL", "https://kralapi.kralai.tech").rstrip("/")
 KRALAPI_MODEL = os.getenv("KRALAPI_MODEL", "gpt-5.5")
 KRALAPI_API_KEY = os.getenv("KRALAPI_API_KEY") or os.getenv("OPENAI_API_KEY")
+REQUIRED_MODEL_FILES = (
+    "config.json",
+    "audiovae.pth",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "tokenization_voxcpm2.py",
+)
 
 _CUSTOM_CSS = """
 .brand-header {
@@ -197,7 +205,7 @@ _CUSTOM_CSS = """
 }
 .service-readiness__grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 10px;
 }
 .service-status {
@@ -384,6 +392,52 @@ def _check_kralapi_connectivity() -> Tuple[str, str]:
         return "error", f"连接 {KRALAPI_BASE_URL} 超时。"
 
 
+def _get_data_root_path() -> Optional[Path]:
+    data_root_value = (os.getenv("DATA_ROOT") or "").strip()
+    if not data_root_value:
+        return None
+    data_root = data_root_value.rstrip("/") or "/"
+    return Path(data_root).expanduser()
+
+
+def _check_data_root_mount() -> Tuple[str, str]:
+    data_root = _get_data_root_path()
+    if data_root is None:
+        return "warn", "未设置 DATA_ROOT；远端数据盘挂载点未知。8808 demo 推荐指向云盘/数据盘，例如 /root/autodl-tmp。"
+    if not data_root.exists():
+        return "error", f"DATA_ROOT 挂载目录不存在：{data_root}。请先挂载云盘/数据盘，或修正 DATA_ROOT。"
+    if not data_root.is_dir():
+        return "error", f"DATA_ROOT 存在但不是目录：{data_root}。请改成云盘/数据盘挂载目录。"
+    return "ok", f"DATA_ROOT 挂载目录可访问：{data_root}"
+
+
+def _check_data_root_subdirs() -> Tuple[str, str]:
+    data_root = _get_data_root_path()
+    if data_root is None:
+        return "warn", "未设置 DATA_ROOT；无法检查 $DATA_ROOT/models 和 $DATA_ROOT/cache。"
+    if not data_root.is_dir():
+        return "error", "DATA_ROOT 挂载目录不可用；先修复挂载目录，再检查 models/cache。"
+
+    required_subdirs = ("models", "cache")
+    missing = [str(data_root / subdir) for subdir in required_subdirs if not (data_root / subdir).is_dir()]
+    if missing:
+        return (
+            "error",
+            "DATA_ROOT 可访问，但缺少 8808 demo 子目录："
+            + "、".join(missing)
+            + "。请在挂载盘创建 models/ 和 cache/，或修正 DATA_ROOT。",
+        )
+    return "ok", f"已找到 8808 demo 子目录：{data_root / 'models'}，{data_root / 'cache'}"
+
+
+def _is_under_path(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(parent.resolve(strict=False))
+        return True
+    except ValueError:
+        return False
+
+
 def _check_model_path(model_id: str) -> Tuple[str, str]:
     model_value = (model_id or "").strip()
     if not model_value:
@@ -392,12 +446,29 @@ def _check_model_path(model_id: str) -> Tuple[str, str]:
     model_path = Path(model_value).expanduser()
     if model_path.exists():
         if model_path.is_dir():
-            return "ok", f"本地模型目录存在：{model_path}"
+            missing = [file for file in REQUIRED_MODEL_FILES if not (model_path / file).is_file()]
+            weight_files = list(model_path.glob("*.safetensors")) + list(model_path.glob("*.bin"))
+            if not weight_files:
+                missing.append("*.safetensors 或 *.bin 权重文件")
+            if missing:
+                return "error", f"模型目录存在但文件不全：{model_path}。缺少：{', '.join(missing)}。"
+            return "ok", f"VoxCPM2 模型目录和关键文件已就绪：{model_path}"
         return "warn", f"路径存在但不是目录：{model_path}"
 
     looks_like_local_path = model_value.startswith(("/", "./", "../", "~"))
     if looks_like_local_path:
-        return "error", f"本地模型路径不存在：{model_path}"
+        data_root = _get_data_root_path()
+        if data_root is not None and _is_under_path(model_path, data_root / "models"):
+            if data_root.is_dir():
+                data_root_hint = "DATA_ROOT 挂载可访问时，这通常表示模型文件还没放到 "
+            else:
+                data_root_hint = "DATA_ROOT 已配置但挂载目录不可用；挂载修复后，也请确认模型文件已放到 "
+            return (
+                "error",
+                f"模型目录缺失：{model_path}。{data_root_hint}"
+                "$DATA_ROOT/models/VoxCPM2，或 VOXCPM_MODEL_PATH 指错目录。",
+            )
+        return "error", f"本地模型路径不存在：{model_path}。如果模型在远端数据盘，请先确认 DATA_ROOT 已挂载。"
     return "warn", f"当前使用模型 ID：{model_value}；未检查本地权重目录。"
 
 
@@ -409,8 +480,11 @@ def build_service_readiness_html(model_id: str) -> str:
         else "未读取 KRALAPI_API_KEY；如开启自动方言改写，生成会失败。"
     )
     rewrite_status, rewrite_detail = _check_kralapi_connectivity()
+    data_root_status, data_root_detail = _check_data_root_mount()
+    subdirs_status, subdirs_detail = _check_data_root_subdirs()
     model_status, model_detail = _check_model_path(model_id)
-    overall = "服务就绪" if all(s == "ok" for s in (api_key_status, rewrite_status, model_status)) else "需要处理配置项"
+    readiness_statuses = (api_key_status, rewrite_status, data_root_status, subdirs_status, model_status)
+    overall = "服务就绪" if all(s == "ok" for s in readiness_statuses) else "需要处理配置项"
     return (
         '<section class="service-readiness">'
         '<div class="service-readiness__header">'
@@ -420,6 +494,8 @@ def build_service_readiness_html(model_id: str) -> str:
         '<div class="service-readiness__grid">'
         + _readiness_card("改写密钥", api_key_status, api_key_detail)
         + _readiness_card("方言改写接口", rewrite_status, rewrite_detail)
+        + _readiness_card("DATA_ROOT 挂载", data_root_status, data_root_detail)
+        + _readiness_card("models/cache 目录", subdirs_status, subdirs_detail)
         + _readiness_card("模型路径", model_status, model_detail)
         + "</div>"
         "</section>"
