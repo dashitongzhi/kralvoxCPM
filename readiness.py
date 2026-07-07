@@ -126,10 +126,10 @@ def _check_model_path(model_id: str, data_root_value: Optional[str] = None) -> T
             missing = [file for file in REQUIRED_MODEL_FILES if not (model_path / file).is_file()]
             weight_files = list(model_path.glob("*.safetensors")) + list(model_path.glob("*.bin"))
             if not weight_files:
-                missing.append("*.safetensors 或 *.bin 权重文件")
+                missing.append("model.safetensors 或其他 *.safetensors/*.bin 主权重文件")
             if missing:
                 return "error", f"模型目录存在但文件不全：{model_path}。缺少：{', '.join(missing)}。"
-            return "ok", f"VoxCPM2 模型目录和关键文件已就绪：{model_path}"
+            return "ok", f"VoxCPM2 模型目录、关键文件和主权重已就绪：{model_path}"
         return "warn", f"路径存在但不是目录：{model_path}"
 
     looks_like_local_path = model_value.startswith(("/", "./", "../", "~"))
