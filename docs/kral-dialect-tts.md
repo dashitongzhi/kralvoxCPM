@@ -94,6 +94,8 @@ TORCH_HOME=$DATA_ROOT/cache/torch
 VOXCPM_PRESETS_DIR=$DATA_ROOT/presets
 ```
 
+启动脚本会优先使用 `.venv`、当前 conda、`$DATA_ROOT/conda-envs/voxcpm/bin/python` 等已准备好的 Python 环境；如果需要指定环境，可以设置 `PYTHON_BIN`。
+
 如果模型、缓存或预设目录确实放在别处，可以在 `.env` 里单独覆盖这些变量。真实模型文件仍然需要手动放到 `$DATA_ROOT/models/VoxCPM2`，或者把 `VOXCPM_MODEL_PATH` 指向实际模型目录。
 
 不要把真实 `.env`、`.runtime.env` 或 API key 提交到仓库。
