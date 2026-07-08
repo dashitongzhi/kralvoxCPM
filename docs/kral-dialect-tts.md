@@ -50,15 +50,27 @@ special_tokens_map.json
 tokenization_voxcpm2.py
 ```
 
-3. 配置方言改写接口和本地模型路径。
-
-复制模板并填写真实密钥：
+3. 运行 8808 demo 的一键准备脚本。
 
 ```bash
-cp .env.example .env
+DATA_ROOT=/root/autodl-tmp scripts/prepare_dialect_demo.sh
 ```
 
-至少需要配置：
+脚本会做三件事：
+
+- 如果 `.env` 不存在，就按 `.env.example` 生成一份可修改的本地模板；如果已经存在，则只读取检查，不覆盖。
+- 确认 `DATA_ROOT` 挂载点已存在，并创建 8808 demo 需要的 `$DATA_ROOT/models/VoxCPM2`、`$DATA_ROOT/cache/hf`、`$DATA_ROOT/cache/modelscope` 和 `$DATA_ROOT/cache/torch`。
+- 提示还需要手动补齐的配置或模型文件。
+
+如果已经在 `.env` 里写好 `DATA_ROOT`，也可以直接运行：
+
+```bash
+scripts/prepare_dialect_demo.sh
+```
+
+4. 填写方言改写接口密钥，并放好预训练模型。
+
+编辑 `.env`，至少确认这些配置：
 
 ```bash
 KRALAPI_BASE_URL=https://kralapi.kralai.tech
@@ -79,16 +91,16 @@ MODELSCOPE_CACHE=$DATA_ROOT/cache/modelscope
 TORCH_HOME=$DATA_ROOT/cache/torch
 ```
 
-如果模型或缓存确实放在别处，可以在 `.env` 里单独覆盖这些变量。
+如果模型或缓存确实放在别处，可以在 `.env` 里单独覆盖这些变量。真实模型文件仍然需要手动放到 `$DATA_ROOT/models/VoxCPM2`，或者把 `VOXCPM_MODEL_PATH` 指向实际模型目录。
 
 不要把真实 `.env`、`.runtime.env` 或 API key 提交到仓库。
 
 ## 启动
 
-推荐使用仓库内的最小启动脚本。脚本会在启动前检查 `.env`、`KRALAPI_API_KEY`、`DATA_ROOT` 挂载目录、`models`/`cache` 子目录、`VOXCPM_MODEL_PATH`、模型关键文件、Python 依赖、CUDA 可用性和 `8808` 端口占用；如果缺配置或路径不对，会直接给出明确报错。
+推荐使用仓库内的最小启动脚本。准备阶段先运行 `scripts/prepare_dialect_demo.sh`；启动脚本会在启动前检查 `.env`、`KRALAPI_API_KEY`、`DATA_ROOT` 挂载目录、`models`/`cache` 子目录、`VOXCPM_MODEL_PATH`、模型关键文件、Python 依赖、CUDA 可用性和 `8808` 端口占用；如果缺配置或路径不对，会直接给出明确报错。
 
 ```bash
-chmod +x scripts/run_dialect_demo.sh
+scripts/prepare_dialect_demo.sh
 scripts/run_dialect_demo.sh
 ```
 
