@@ -110,6 +110,7 @@ def test_readiness_reports_ready_without_loading_model(tmp_path):
     model_dir = tmp_path / "models" / "VoxCPM2"
     model_dir.mkdir(parents=True)
     (tmp_path / "cache").mkdir()
+    (tmp_path / "presets").mkdir()
     for file_name in readiness.REQUIRED_MODEL_FILES:
         (model_dir / file_name).write_text("stub", encoding="utf-8")
     (model_dir / "model.safetensors").write_text("stub", encoding="utf-8")
@@ -125,3 +126,4 @@ def test_readiness_reports_ready_without_loading_model(tmp_path):
 
     assert "服务就绪" in html
     assert "VoxCPM2 模型目录、关键文件和主权重已就绪" in html
+    assert "预设存储目录可写" in html

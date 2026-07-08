@@ -39,6 +39,14 @@ def test_save_load_and_list_preset_with_reference_audio(monkeypatch, tmp_path):
     assert Path(loaded["reference_audio"]).read_bytes() == b"fake wav"
 
 
+def test_default_preset_dir_uses_data_root(monkeypatch, tmp_path):
+    monkeypatch.delenv("VOXCPM_PRESETS_DIR", raising=False)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data-root"))
+
+    assert presets.get_presets_dir() == tmp_path / "data-root" / "presets"
+    assert presets.get_presets_dir().is_dir()
+
+
 def test_overwrite_and_delete_remove_managed_files(monkeypatch, tmp_path):
     monkeypatch.setenv("VOXCPM_PRESETS_DIR", str(tmp_path / "presets"))
     first = tmp_path / "first.wav"

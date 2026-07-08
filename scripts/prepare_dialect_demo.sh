@@ -58,6 +58,7 @@ prepare_data_root() {
     "cache/hf"
     "cache/modelscope"
     "cache/torch"
+    "presets"
   )
 
   [[ -d "$DATA_ROOT" ]] || die "DATA_ROOT does not exist: $DATA_ROOT. Mount the remote data disk first, or set DATA_ROOT to the mounted path."

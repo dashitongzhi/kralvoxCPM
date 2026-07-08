@@ -36,6 +36,7 @@ $DATA_ROOT/
     hf/
     modelscope/
     torch/
+  presets/
 ```
 
 其中模型目录默认是 `$DATA_ROOT/models/VoxCPM2`，目录内至少需要包含：
@@ -56,10 +57,11 @@ tokenization_voxcpm2.py
 DATA_ROOT=/root/autodl-tmp scripts/prepare_dialect_demo.sh
 ```
 
-脚本会做三件事：
+脚本会做四件事：
 
 - 如果 `.env` 不存在，就按 `.env.example` 生成一份可修改的本地模板；如果已经存在，则只读取检查，不覆盖。
 - 确认 `DATA_ROOT` 挂载点已存在，并创建 8808 demo 需要的 `$DATA_ROOT/models/VoxCPM2`、`$DATA_ROOT/cache/hf`、`$DATA_ROOT/cache/modelscope` 和 `$DATA_ROOT/cache/torch`。
+- 创建 `$DATA_ROOT/presets`，用于保存页面里的方言/角色/参考音频预设；如果需要放在别处，可以设置 `VOXCPM_PRESETS_DIR`。
 - 提示还需要手动补齐的配置或模型文件。
 
 如果已经在 `.env` 里写好 `DATA_ROOT`，也可以直接运行：
@@ -89,9 +91,10 @@ VOXCPM_MODEL_PATH=$DATA_ROOT/models/VoxCPM2
 HF_HOME=$DATA_ROOT/cache/hf
 MODELSCOPE_CACHE=$DATA_ROOT/cache/modelscope
 TORCH_HOME=$DATA_ROOT/cache/torch
+VOXCPM_PRESETS_DIR=$DATA_ROOT/presets
 ```
 
-如果模型或缓存确实放在别处，可以在 `.env` 里单独覆盖这些变量。真实模型文件仍然需要手动放到 `$DATA_ROOT/models/VoxCPM2`，或者把 `VOXCPM_MODEL_PATH` 指向实际模型目录。
+如果模型、缓存或预设目录确实放在别处，可以在 `.env` 里单独覆盖这些变量。真实模型文件仍然需要手动放到 `$DATA_ROOT/models/VoxCPM2`，或者把 `VOXCPM_MODEL_PATH` 指向实际模型目录。
 
 不要把真实 `.env`、`.runtime.env` 或 API key 提交到仓库。
 
@@ -110,7 +113,7 @@ scripts/run_dialect_demo.sh
 http://127.0.0.1:8808
 ```
 
-页面顶部的“服务就绪状态”会按项提示远端 8808 demo 的缺口：`DATA_ROOT 挂载`异常表示数据盘没挂载或变量写错，`models/cache 目录`异常表示挂载点能访问但缺少 demo 子目录，`模型路径`异常表示 VoxCPM2 模型目录不存在，或缺少关键模型文件/主权重文件。
+页面顶部的“服务就绪状态”会按项提示远端 8808 demo 的缺口：`DATA_ROOT 挂载`异常表示数据盘没挂载或变量写错，`models/cache 目录`异常表示挂载点能访问但缺少 demo 子目录，`模型路径`异常表示 VoxCPM2 模型目录不存在，或缺少关键模型文件/主权重文件，`预设存储`异常表示页面预设不能保存到可写目录。
 
 远程服务器建议通过 SSH 隧道访问：
 
@@ -162,6 +165,7 @@ $DATA_ROOT/models/       # 远程数据盘上的预训练模型
 $DATA_ROOT/datasets/     # 训练或测试数据，可自建
 $DATA_ROOT/outputs/      # 生成音频，可自建
 $DATA_ROOT/cache/        # Hugging Face / ModelScope / Torch 缓存
+$DATA_ROOT/presets/      # 页面保存的方言、角色和参考音频预设
 ```
 
 这些目录已在 `.gitignore` 中忽略。换机器时，把仓库克隆下来，再把预训练模型和数据集放到对应目录或通过 `--model-id` 指向实际路径即可。

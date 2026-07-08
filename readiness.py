@@ -149,6 +149,45 @@ def _check_model_path(model_id: str, data_root_value: Optional[str] = None) -> T
     return "warn", f"当前使用模型 ID：{model_value}；未检查本地权重目录。"
 
 
+def _get_preset_storage_path(
+    *,
+    presets_dir_value: Optional[str] = None,
+    data_root_value: Optional[str] = None,
+) -> Path:
+    presets_dir_value = (
+        presets_dir_value if presets_dir_value is not None else os.getenv("VOXCPM_PRESETS_DIR") or ""
+    ).strip()
+    if presets_dir_value:
+        return Path(presets_dir_value).expanduser()
+
+    data_root = _get_data_root_path(data_root_value)
+    if data_root is not None:
+        return data_root / "presets"
+    return Path(__file__).parent.resolve() / "presets"
+
+
+def _check_preset_storage(
+    *,
+    presets_dir_value: Optional[str] = None,
+    data_root_value: Optional[str] = None,
+) -> Tuple[str, str]:
+    presets_dir = _get_preset_storage_path(
+        presets_dir_value=presets_dir_value,
+        data_root_value=data_root_value,
+    )
+    if presets_dir.exists():
+        if not presets_dir.is_dir():
+            return "error", f"预设存储路径存在但不是目录：{presets_dir}。请改用可写目录。"
+        if not os.access(presets_dir, os.W_OK):
+            return "error", f"预设存储目录不可写：{presets_dir}。请修复权限或设置 VOXCPM_PRESETS_DIR。"
+        return "ok", f"预设存储目录可写：{presets_dir}"
+
+    parent = presets_dir.parent
+    if parent.is_dir() and os.access(parent, os.W_OK):
+        return "warn", f"预设存储目录尚未创建，但父目录可写：{presets_dir}。保存预设时会自动创建。"
+    return "error", f"预设存储目录不存在且父目录不可写：{presets_dir}。请运行准备脚本或设置 VOXCPM_PRESETS_DIR。"
+
+
 def build_service_readiness_html(
     model_id: str,
     *,
@@ -156,6 +195,7 @@ def build_service_readiness_html(
     base_url: str,
     rewrite_model: str,
     data_root_value: Optional[str] = None,
+    presets_dir_value: Optional[str] = None,
     urlopen: Callable = urllib.request.urlopen,
 ) -> str:
     api_key_status = "ok" if api_key else "error"
@@ -173,7 +213,18 @@ def build_service_readiness_html(
     data_root_status, data_root_detail = _check_data_root_mount(data_root_value)
     subdirs_status, subdirs_detail = _check_data_root_subdirs(data_root_value)
     model_status, model_detail = _check_model_path(model_id, data_root_value)
-    readiness_statuses = (api_key_status, rewrite_status, data_root_status, subdirs_status, model_status)
+    preset_status, preset_detail = _check_preset_storage(
+        presets_dir_value=presets_dir_value,
+        data_root_value=data_root_value,
+    )
+    readiness_statuses = (
+        api_key_status,
+        rewrite_status,
+        data_root_status,
+        subdirs_status,
+        model_status,
+        preset_status,
+    )
     overall = "服务就绪" if all(s == "ok" for s in readiness_statuses) else "需要处理配置项"
     return (
         '<section class="service-readiness">'
@@ -187,6 +238,7 @@ def build_service_readiness_html(
         + _readiness_card("DATA_ROOT 挂载", data_root_status, data_root_detail)
         + _readiness_card("models/cache 目录", subdirs_status, subdirs_detail)
         + _readiness_card("模型路径", model_status, model_detail)
+        + _readiness_card("预设存储", preset_status, preset_detail)
         + "</div>"
         "</section>"
     )

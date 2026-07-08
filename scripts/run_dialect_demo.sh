@@ -77,8 +77,9 @@ configure_data_paths() {
   : "${HF_HOME:=$DATA_ROOT/cache/hf}"
   : "${MODELSCOPE_CACHE:=$DATA_ROOT/cache/modelscope}"
   : "${TORCH_HOME:=$DATA_ROOT/cache/torch}"
+  : "${VOXCPM_PRESETS_DIR:=$DATA_ROOT/presets}"
 
-  export VOXCPM_MODEL_PATH HF_HOME MODELSCOPE_CACHE TORCH_HOME
+  export VOXCPM_MODEL_PATH HF_HOME MODELSCOPE_CACHE TORCH_HOME VOXCPM_PRESETS_DIR
 }
 
 require_command() {

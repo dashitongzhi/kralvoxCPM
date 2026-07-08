@@ -16,7 +16,14 @@ PRESETS_DIRNAME = "presets"
 
 def get_presets_dir() -> Path:
     configured = os.getenv("VOXCPM_PRESETS_DIR")
-    path = Path(configured).expanduser() if configured else Path(__file__).parent.resolve() / PRESETS_DIRNAME
+    if configured:
+        path = Path(configured).expanduser()
+    else:
+        data_root = (os.getenv("DATA_ROOT") or "").strip()
+        if data_root:
+            path = Path(data_root.rstrip("/") or "/").expanduser() / PRESETS_DIRNAME
+        else:
+            path = Path(__file__).parent.resolve() / PRESETS_DIRNAME
     path.mkdir(parents=True, exist_ok=True)
     return path
 

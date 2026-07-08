@@ -99,6 +99,7 @@ def smoke_readiness_reports_missing_and_ready_paths(tmp_path: Path) -> None:
     assert "model.safetensors 或其他 *.safetensors/*.bin 主权重文件" in html
 
     (tmp_path / "models" / "VoxCPM2" / "model.safetensors").write_text("stub", encoding="utf-8")
+    (tmp_path / "presets").mkdir()
 
     html = readiness.build_service_readiness_html(
         str(tmp_path / "models" / "VoxCPM2"),
@@ -110,6 +111,7 @@ def smoke_readiness_reports_missing_and_ready_paths(tmp_path: Path) -> None:
     )
     assert "服务就绪" in html
     assert "VoxCPM2 模型目录、关键文件和主权重已就绪" in html
+    assert "预设存储目录可写" in html
 
 
 def main() -> None:
