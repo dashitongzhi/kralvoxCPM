@@ -7,20 +7,6 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8808}"
 DEVICE="${DEVICE:-cuda}"
 
-if [[ -n "${PYTHON_BIN:-}" ]]; then
-  PYTHON_BIN="$PYTHON_BIN"
-elif command -v python >/dev/null 2>&1; then
-  PYTHON_BIN="python"
-elif command -v python3 >/dev/null 2>&1; then
-  PYTHON_BIN="python3"
-elif [[ -x "/root/miniconda3/bin/python" ]]; then
-  PYTHON_BIN="/root/miniconda3/bin/python"
-elif [[ -x "/opt/conda/bin/python" ]]; then
-  PYTHON_BIN="/opt/conda/bin/python"
-else
-  PYTHON_BIN="python"
-fi
-
 die() {
   printf '\n[run_dialect_demo] ERROR: %s\n' "$*" >&2
   exit 1
@@ -77,8 +63,53 @@ configure_data_paths() {
   : "${HF_HOME:=$DATA_ROOT/cache/hf}"
   : "${MODELSCOPE_CACHE:=$DATA_ROOT/cache/modelscope}"
   : "${TORCH_HOME:=$DATA_ROOT/cache/torch}"
+  : "${VOXCPM_PRESETS_DIR:=$DATA_ROOT/presets}"
 
-  export VOXCPM_MODEL_PATH HF_HOME MODELSCOPE_CACHE TORCH_HOME
+  export VOXCPM_MODEL_PATH HF_HOME MODELSCOPE_CACHE TORCH_HOME VOXCPM_PRESETS_DIR
+}
+
+select_python_bin() {
+  if [[ -n "${PYTHON_BIN:-}" ]]; then
+    return
+  fi
+
+  local candidates=(
+    "$ROOT_DIR/.venv/bin/python"
+  )
+
+  if [[ -n "${CONDA_PREFIX:-}" ]]; then
+    candidates+=("$CONDA_PREFIX/bin/python")
+  fi
+
+  if [[ -n "${DATA_ROOT:-}" ]]; then
+    candidates+=(
+      "$DATA_ROOT/conda-envs/voxcpm/bin/python"
+      "$DATA_ROOT/conda-envs/VoxCPM/bin/python"
+    )
+  fi
+
+  candidates+=(
+    "/root/miniconda3/envs/voxcpm/bin/python"
+    "/opt/conda/envs/voxcpm/bin/python"
+    "/root/miniconda3/bin/python"
+    "/opt/conda/bin/python"
+  )
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -x "$candidate" ]]; then
+      PYTHON_BIN="$candidate"
+      return
+    fi
+  done
+
+  if command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+  else
+    PYTHON_BIN="python"
+  fi
 }
 
 require_command() {
@@ -162,6 +193,7 @@ main() {
   cd "$ROOT_DIR"
   load_env
   configure_data_paths
+  select_python_bin
   require_command "$PYTHON_BIN"
   check_port
   check_required_env

@@ -16,6 +16,9 @@ from pathlib import Path
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import voxcpm
+import preset_controls
+import presets as preset_store
+import readiness
 from voxcpm.model.utils import resolve_runtime_device
 
 logging.basicConfig(
@@ -95,6 +98,14 @@ _ZH_TRANSLATIONS = {
     "seed_info": "用于复现生成结果；生成成功后会显示实际使用的种子。",
     "random_seed_label": "每次自动随机",
     "random_seed_info": "每次生成前自动换一个随机种子。",
+    "preset_section_title": "预设配置",
+    "preset_name_label": "预设名称",
+    "preset_name_placeholder": "例如：粤语暴躁教练 / 四川女店主",
+    "save_preset_btn": "保存",
+    "load_preset_label": "选择预设",
+    "apply_preset_btn": "应用",
+    "delete_preset_btn": "删除",
+    "refresh_preset_btn": "刷新",
     "usage_instructions": _USAGE_INSTRUCTIONS_ZH,
     "examples_footer": _EXAMPLES_FOOTER_ZH,
 }
@@ -114,6 +125,17 @@ for _d in _I18N_TRANSLATIONS.values():
             _d.setdefault(_k, _v)
 
 I18N = gr.I18n(**_I18N_TRANSLATIONS)
+
+_PRESET_TOASTS = {
+    "name_empty": "请先输入预设名称。",
+    "save_done": "预设已保存。",
+    "save_overwritten": "同名预设已覆盖。",
+    "save_failed": "保存预设失败：{error}",
+    "select_first": "请先选择一个预设。",
+    "missing": "预设不存在或已被删除。",
+    "delete_done": "预设已删除。",
+    "reference_missing": "预设中的参考音频文件不存在，已跳过音频。",
+}
 
 DEFAULT_TARGET_TEXT = "踩离合！踩刹车啊！你往哪儿开呢？前面是树你看不见吗？我教了你八百遍了，打死方向盘！你是不是想把车给我开到沟里去？"
 
@@ -177,7 +199,7 @@ _CUSTOM_CSS = """
 }
 .service-readiness__grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 10px;
 }
 .service-status {
@@ -307,19 +329,6 @@ def _escape_html(value: str) -> str:
     return html.escape(value or "", quote=True)
 
 
-def _readiness_card(title: str, status: str, detail: str) -> str:
-    status_label = {"ok": "正常", "warn": "待确认", "error": "异常"}.get(status, "待确认")
-    return (
-        f'<div class="service-status service-status--{status}">'
-        '<div class="service-status__line">'
-        '<span class="service-status__dot" aria-hidden="true"></span>'
-        f"<span>{_escape_html(title)} · {status_label}</span>"
-        "</div>"
-        f'<div class="service-status__detail">{_escape_html(detail)}</div>'
-        "</div>"
-    )
-
-
 def _build_generation_error_html(error: Exception) -> str:
     message = str(error).strip() or error.__class__.__name__
     return (
@@ -337,72 +346,6 @@ def _build_workflow_message_html(title: str, message: str, kind: str = "info") -
         f'<div class="workflow-alert__title">{_escape_html(title)}</div>'
         f"<div>{_escape_html(message)}</div>"
         "</div>"
-    )
-
-
-def _check_kralapi_connectivity() -> Tuple[str, str]:
-    if not KRALAPI_API_KEY:
-        return "error", "未配置 KRALAPI_API_KEY，自动方言改写不可用。"
-
-    request = urllib.request.Request(
-        f"{KRALAPI_BASE_URL}/v1/models",
-        headers={"Authorization": f"Bearer {KRALAPI_API_KEY}"},
-        method="GET",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=8) as response:
-            if 200 <= response.status < 300:
-                return "ok", f"已连通 {KRALAPI_BASE_URL}，改写模型：{KRALAPI_MODEL}。"
-            return "warn", f"接口返回 HTTP {response.status}，生成时可能需要进一步确认。"
-    except urllib.error.HTTPError as exc:
-        if exc.code in (401, 403):
-            return "error", f"接口可达，但密钥认证失败：HTTP {exc.code}。"
-        return "warn", f"接口可达但返回 HTTP {exc.code}，生成时可能失败。"
-    except urllib.error.URLError as exc:
-        return "error", f"无法连通 {KRALAPI_BASE_URL}：{exc.reason}"
-    except TimeoutError:
-        return "error", f"连接 {KRALAPI_BASE_URL} 超时。"
-
-
-def _check_model_path(model_id: str) -> Tuple[str, str]:
-    model_value = (model_id or "").strip()
-    if not model_value:
-        return "error", "未传入模型路径或模型 ID。"
-
-    model_path = Path(model_value).expanduser()
-    if model_path.exists():
-        if model_path.is_dir():
-            return "ok", f"本地模型目录存在：{model_path}"
-        return "warn", f"路径存在但不是目录：{model_path}"
-
-    looks_like_local_path = model_value.startswith(("/", "./", "../", "~"))
-    if looks_like_local_path:
-        return "error", f"本地模型路径不存在：{model_path}"
-    return "warn", f"当前使用模型 ID：{model_value}；未检查本地权重目录。"
-
-
-def build_service_readiness_html(model_id: str) -> str:
-    api_key_status = "ok" if KRALAPI_API_KEY else "error"
-    api_key_detail = (
-        "已读取 KRALAPI_API_KEY，页面可调用方言改写。"
-        if KRALAPI_API_KEY
-        else "未读取 KRALAPI_API_KEY；如开启自动方言改写，生成会失败。"
-    )
-    rewrite_status, rewrite_detail = _check_kralapi_connectivity()
-    model_status, model_detail = _check_model_path(model_id)
-    overall = "服务就绪" if all(s == "ok" for s in (api_key_status, rewrite_status, model_status)) else "需要处理配置项"
-    return (
-        '<section class="service-readiness">'
-        '<div class="service-readiness__header">'
-        '<div class="service-readiness__title">服务就绪状态</div>'
-        f'<div class="service-readiness__summary">{_escape_html(overall)} · 不提前加载 VoxCPM 大模型</div>'
-        "</div>"
-        '<div class="service-readiness__grid">'
-        + _readiness_card("改写密钥", api_key_status, api_key_detail)
-        + _readiness_card("方言改写接口", rewrite_status, rewrite_detail)
-        + _readiness_card("模型路径", model_status, model_detail)
-        + "</div>"
-        "</section>"
     )
 
 
@@ -605,15 +548,10 @@ class VoxCPMDemo:
 def create_demo_interface(demo: VoxCPMDemo):
     gr.set_static_paths(paths=[Path.cwd().absolute() / "assets"])
 
-    def _coerce_seed(seed_value) -> Optional[int]:
-        if seed_value is None or seed_value == "":
-            return None
-        return int(seed_value)
-
     def _prepare_seed(use_random_seed: bool, seed_value):
         if use_random_seed:
             return random.randint(0, 2**32 - 1)
-        return _coerce_seed(seed_value)
+        return preset_controls.coerce_seed(seed_value)
 
     def _on_random_seed_toggle(checked):
         return gr.update(interactive=not checked)
@@ -689,7 +627,7 @@ def create_demo_interface(demo: VoxCPMDemo):
                 display_rewritten_text = edited_rewritten_text
             control_parts = [dialect.strip() if dialect else "", role_description.strip() if role_description else ""]
             actual_control = "" if use_prompt_text else "，".join(part for part in control_parts if part)
-            seed = _coerce_seed(seed_value)
+            seed = preset_controls.coerce_seed(seed_value)
             sr, wav_np, last_successful_seed = demo.generate_tts_audio(
                 text_input=synthesis_text,
                 control_instruction=actual_control,
@@ -736,6 +674,91 @@ def create_demo_interface(demo: VoxCPMDemo):
             logger.warning(f"ASR recognition failed: {e}")
             return gr.update(value="")
 
+    def _refresh_preset_dropdown(selected: str = ""):
+        choices = preset_store.list_presets()
+        value = selected if selected in choices else None
+        return gr.update(choices=choices, value=value, interactive=bool(choices))
+
+    def _empty_preset_apply_updates():
+        return tuple(gr.update(**kwargs) for kwargs in preset_controls.empty_preset_apply_update_kwargs())
+
+    def _on_preset_save(
+        name,
+        ref_wav,
+        dialect_value,
+        role_value,
+        text_value,
+        rewritten_value,
+        use_prompt_text,
+        prompt_text_value,
+        auto_rewrite,
+        cfg_value_input,
+        do_normalize,
+        denoise,
+        dit_steps_value,
+        seed_value,
+        random_seed_value,
+    ):
+        name = (name or "").strip()
+        if not name:
+            gr.Warning(_PRESET_TOASTS["name_empty"])
+            return gr.update(), gr.update()
+
+        safe_name = preset_store.safe_preset_name(name)
+        existed = preset_store.preset_exists(safe_name)
+        data = preset_controls.collect_preset_data(
+            dialect_value,
+            role_value,
+            text_value,
+            rewritten_value,
+            use_prompt_text,
+            prompt_text_value,
+            auto_rewrite,
+            cfg_value_input,
+            do_normalize,
+            denoise,
+            dit_steps_value,
+            seed_value,
+            random_seed_value,
+        )
+        try:
+            saved_name = preset_store.save_preset(name, data, reference_audio=ref_wav)
+        except Exception as exc:
+            logger.exception("Preset save failed")
+            gr.Warning(_PRESET_TOASTS["save_failed"].format(error=exc))
+            return gr.update(), gr.update()
+
+        gr.Info(_PRESET_TOASTS["save_overwritten" if existed else "save_done"])
+        return gr.update(value=""), _refresh_preset_dropdown(saved_name)
+
+    def _on_preset_apply(name):
+        if not name:
+            gr.Warning(_PRESET_TOASTS["select_first"])
+            return _empty_preset_apply_updates()
+
+        data = preset_store.load_preset(name)
+        if data is None:
+            gr.Warning(_PRESET_TOASTS["missing"])
+            return _empty_preset_apply_updates()
+
+        updates, reference_missing = preset_controls.build_preset_apply_update_kwargs(data)
+        if reference_missing:
+            gr.Warning(_PRESET_TOASTS["reference_missing"])
+        return tuple(gr.update(**kwargs) for kwargs in updates)
+
+    def _on_preset_delete(name):
+        if not name:
+            gr.Warning(_PRESET_TOASTS["select_first"])
+            return gr.update()
+        if preset_store.delete_preset(name):
+            gr.Info(_PRESET_TOASTS["delete_done"])
+        else:
+            gr.Warning(_PRESET_TOASTS["missing"])
+        return _refresh_preset_dropdown()
+
+    def _on_preset_refresh():
+        return _refresh_preset_dropdown()
+
     with gr.Blocks() as interface:
         gr.HTML(
             '<div class="brand-header">'
@@ -745,7 +768,14 @@ def create_demo_interface(demo: VoxCPMDemo):
         )
 
         gr.Markdown(I18N("usage_instructions"))
-        gr.HTML(build_service_readiness_html(demo._model_id))
+        gr.HTML(
+            readiness.build_service_readiness_html(
+                demo._model_id,
+                api_key=KRALAPI_API_KEY,
+                base_url=KRALAPI_BASE_URL,
+                rewrite_model=KRALAPI_MODEL,
+            )
+        )
 
         with gr.Row():
             with gr.Column():
@@ -835,6 +865,29 @@ def create_demo_interface(demo: VoxCPMDemo):
                             info=I18N("random_seed_info"),
                         )
 
+                with gr.Accordion(I18N("preset_section_title"), open=False):
+                    with gr.Row():
+                        preset_name = gr.Textbox(
+                            value="",
+                            label=I18N("preset_name_label"),
+                            placeholder=I18N("preset_name_placeholder"),
+                            scale=3,
+                        )
+                        save_preset_btn = gr.Button(I18N("save_preset_btn"), scale=1)
+                    with gr.Row():
+                        preset_choices = preset_store.list_presets()
+                        preset_dropdown = gr.Dropdown(
+                            choices=preset_choices,
+                            value=None,
+                            label=I18N("load_preset_label"),
+                            allow_custom_value=False,
+                            interactive=bool(preset_choices),
+                            scale=3,
+                        )
+                        apply_preset_btn = gr.Button(I18N("apply_preset_btn"), scale=1)
+                        delete_preset_btn = gr.Button(I18N("delete_preset_btn"), scale=1)
+                        refresh_preset_btn = gr.Button(I18N("refresh_preset_btn"), scale=1)
+
                 with gr.Row():
                     rewrite_btn = gr.Button(I18N("rewrite_btn"), variant="secondary")
                     run_btn = gr.Button(I18N("generate_btn"), variant="primary", size="lg")
@@ -904,6 +957,66 @@ def create_demo_interface(demo: VoxCPMDemo):
             outputs=[rewritten_text_output, audio_output, seed_value, generation_error],
             show_progress=True,
             api_name="generate",
+        )
+
+        preset_save_inputs = [
+            preset_name,
+            reference_wav,
+            dialect,
+            role_description,
+            text,
+            rewritten_text_output,
+            show_prompt_text,
+            prompt_text,
+            AutoRewriteText,
+            cfg_value,
+            DoNormalizeText,
+            DoDenoisePromptAudio,
+            dit_steps,
+            seed_value,
+            random_seed,
+        ]
+        preset_apply_outputs = [
+            reference_wav,
+            dialect,
+            role_description,
+            text,
+            rewritten_text_output,
+            show_prompt_text,
+            prompt_text,
+            AutoRewriteText,
+            cfg_value,
+            DoNormalizeText,
+            DoDenoisePromptAudio,
+            dit_steps,
+            seed_value,
+            random_seed,
+            generation_error,
+        ]
+        save_preset_btn.click(
+            fn=_on_preset_save,
+            inputs=preset_save_inputs,
+            outputs=[preset_name, preset_dropdown],
+        )
+        apply_preset_btn.click(
+            fn=_on_preset_apply,
+            inputs=[preset_dropdown],
+            outputs=preset_apply_outputs,
+        )
+        delete_preset_btn.click(
+            fn=_on_preset_delete,
+            inputs=[preset_dropdown],
+            outputs=[preset_dropdown],
+        )
+        refresh_preset_btn.click(
+            fn=_on_preset_refresh,
+            inputs=[],
+            outputs=[preset_dropdown],
+        )
+        interface.load(
+            fn=_on_preset_refresh,
+            inputs=[],
+            outputs=[preset_dropdown],
         )
 
     return interface
